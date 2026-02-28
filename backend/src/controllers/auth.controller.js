@@ -1,53 +1,91 @@
-import User from "../models/userModel.js";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 
-export const registerUser = async (req, res) => {
-  try {
-    const { name, email, password, role } = req.body;
+const usermodel = require("../models/user.model")
+const jwt = require("jsonwebtoken")
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+//register controller
+/*
+--Post /api/auth/register
+*/
 
-    const user = await User.create({
-      name,
-      email,
-      password: hashedPassword,
-      role
-    });
+async function userregistercontroller(req,res){
 
-    res.status(201).json({
-      message: "User registered successfully"
-    });
+    const {email , name , password }=req.body;
 
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+const isexist= await usermodel.findOne({
 
-export const loginUser = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+    email: email
+})
 
-    const user = await User.findOne({ email });
+if(isexist){
+    return res.status(422).json({
+        message :"user already exist with the provide email",
+        status:"failed"
+    })
+}
 
-    if (!user) return res.status(404).json({ message: "User not found" });
+const user= await usermodel.create({
+    email,password,name
+})
 
-    const isMatch = await bcrypt.compare(password, user.password);
+const token= jwt.sign({userId :user._id},process.env.JWT_SECRET,{expiresIn:"3d"})
 
-    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+res.cookie("token")
 
-    const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+res.status(201).json({
+    user:{
+        _id:user._id,
+        email:user.email,
+        name:user.name
+    },
+    token
 
-    res.json({
-      token,
-      user
-    });
+})
+}
 
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+
+
+
+//login contoller
+/*
+--POST /api/auth/login
+*/
+async function userlogincontroller(req ,res){
+    const {email , password}=req.body
+
+    const user = await usermodel.findOne({email}).select('+password')
+
+    if(!user){
+        return res.status(401).json({
+            message:"Email or Password is INVALID"
+        })
+    }
+
+        const isvalidpassword = await user.matchPassword(password)
+
+        if(!isvalidpassword){
+             return res.status(401).json({
+            message:"Email or Password is INVALID"
+        })
+
+        }
+        const token= jwt.sign({userId :user._id},process.env.JWT_SECRET,{expiresIn:"3d"})
+
+            res.cookie("token")
+
+     res.status(200).json({
+         user:{
+        _id:user._id,
+        email:user.email,
+        name:user.name,
+        message:"Logged IN"
+    },
+    token
+
+})
+ }
+
+
+module.exports={
+    userregistercontroller,
+    userlogincontroller
+}
