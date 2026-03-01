@@ -1,9 +1,12 @@
 require ("dotenv").config()
+
 const app = require("./src/app")
 const connectdb = require("./src/config/db")
 
 // function call
 connectdb();
+
+
 
 //server start
 app.listen(3000,()=>{

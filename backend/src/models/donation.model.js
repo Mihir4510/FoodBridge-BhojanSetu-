@@ -1,19 +1,40 @@
-import mongoose from "mongoose";
 
-const donationSchema = new mongoose.Schema({
-  donor: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User"
-  },
-  foodType: String,
-  quantity: String,
-  expiryDate: Date,
-  location: String,
-  status: {
-    type: String,
-    enum: ["available", "requested", "completed"],
-    default: "available"
-  }
-}, { timestamps: true });
+const mongoose = require("mongoose");
 
-export default mongoose.model("Donation", donationSchema);
+const donationSchema = mongoose.Schema(
+    {
+        donorId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true
+        },
+        organizationId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true
+        },
+        type: {
+            type: String,
+            enum: ["food", "grocery"],
+            required: true
+        },
+        quantity: {
+            type: String,
+            required: true
+        },
+        description: {
+            type: String
+        },
+        image: {
+            type: String
+        },
+        status: {
+            type: String,
+            enum: ["pending", "accepted", "collected"],
+            default: "pending"
+        },
+    },
+    { timestamps: true }
+);
+
+module.exports = mongoose.model("Donation", donationSchema);

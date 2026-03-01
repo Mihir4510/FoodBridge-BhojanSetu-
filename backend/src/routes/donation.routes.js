@@ -1,11 +1,52 @@
-import express from "express";
-import { createDonation, getAvailableDonations, markCollected } from "../controllers/donationController.js";
-import { protect } from "../middleware/authMiddleware.js";
-
+const express = require("express");
 const router = express.Router();
+const donationController = require("../controllers/donation.controller");
+const protect = require("../middleware/protect.middleware");
+const authorizeRoles = require("../middleware/authorize.middleware");
+const checkApproval = require("../middleware/approval.middleware");
 
-router.post("/", protect, createDonation);
-router.get("/", protect, getAvailableDonations);
-router.put("/collect/:id", protect, markCollected);
+// Donor/Restaurant creates donation
+router.post(
+    "/create",
+    protect,
+    checkApproval,
+    authorizeRoles("individual", "restaurant"),
+    donationController.createDonation
+);
 
-export default router;
+// Donor/Restaurant views donations
+router.get(
+    "/my-donations",
+    protect,
+    authorizeRoles("individual", "restaurant"),
+    donationController.getDonorDonations
+);
+
+// Organization views requests
+router.get(
+    "/requests",
+    protect,
+    authorizeRoles("organization"),
+    checkApproval,
+    donationController.getOrganizationRequests
+);
+
+// Organization accepts donation
+router.put(
+    "/accept/:id",
+    protect,
+    authorizeRoles("organization"),
+    checkApproval,
+    donationController.acceptDonation
+);
+
+// Organization collects donation
+router.put(
+    "/collect/:id",
+    protect,
+    authorizeRoles("organization"),
+    checkApproval,
+    donationController.collectDonation
+);
+
+module.exports = router;

@@ -91,7 +91,8 @@ async function userlogincontroller(req, res) {
 
   res.cookie("token", token, {
     httpOnly: true,
-  });
+    sameSite: "strict"
+});
   res.status(200).json({
     user: {
       _id: user._id,

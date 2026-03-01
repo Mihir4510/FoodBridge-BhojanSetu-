@@ -1,8 +1,10 @@
 const express = require("express");
-const mongoose = require("mongoose");
 const cookieparser = require ("cookie-parser")
+const globalErrorHandler = require("./middleware/error.middleware");
+
+
 const authrouter=require("./routes/auth.routes")
-require("dotenv").config();
+const donationRouter = require("./routes/donation.routes");
 
 
 const app = express();
@@ -11,8 +13,15 @@ const app = express();
 app.use(express.json());
 app.use(cookieparser())
 
+
 // Routes
 app.use("/api/auth", authrouter);
+
+app.use("/api/donation", donationRouter);
+
+
+//global errorhandler
+app.use(globalErrorHandler);
 
 
 module.exports=app
