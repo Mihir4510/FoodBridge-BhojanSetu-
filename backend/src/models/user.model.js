@@ -24,7 +24,7 @@ const userSchema = mongoose.Schema(
         },
         role: {
             type: String,
-            enum: ['restaurant', 'individual', 'organization', 'admin'],
+            enum: ['restaurant', 'individual', 'organization','admin'],
             default: 'individual',
         },
         isApproved: {
