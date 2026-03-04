@@ -7,7 +7,7 @@ const imagekit = new ImageKit({
 });
 
 async function uploadFile(fileBuffer, originalName) {
-  const result = await imagekit.upload({
+  const result = await imagekit.files.upload({
     file: fileBuffer.toString("base64"),
     fileName: `${Date.now()}-${originalName}`,
     folder: "/bhojansetu/donations"

@@ -34,6 +34,16 @@ const donationSchema = mongoose.Schema(
             enum: ["pending", "accepted", "collected"],
             default: "pending"
         },
+        acceptedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User"
+        },
+        acceptedAt: {
+            type: Date
+        },
+        collectedAt: {
+            type: Date
+        }
     },
     { timestamps: true }
 );

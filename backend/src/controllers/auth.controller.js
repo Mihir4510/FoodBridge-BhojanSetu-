@@ -78,7 +78,7 @@ async function userlogincontroller(req, res) {
     });
   }
 
-  const isvalidpassword = await user.matchPassword(password);
+  const isvalidpassword = await user.comparePassword(password);
 
   if (!isvalidpassword) {
     return res.status(401).json({
