@@ -26,7 +26,8 @@ const donationSchema = mongoose.Schema(
             type: String
         },
         image: {
-            type: String
+            url: String,
+            fileId: String
         },
         status: {
             type: String,
