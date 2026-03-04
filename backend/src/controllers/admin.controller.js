@@ -35,7 +35,7 @@ const getAllUsers = async (req, res) => {
 };
 
 // Approve User
-const approveUser = async (req, res) => {
+const approveUser = async (req, res, next) => {
   try {
     const { userId } = req.params;
 
@@ -60,12 +60,11 @@ const approveUser = async (req, res) => {
       user,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error); 
   }
 };
-
 // Reject User
-const rejectUser = async (req, res) => {
+const rejectUser = async (req, res, next) => {
   try {
     const { userId } = req.params;
 
@@ -80,7 +79,7 @@ const rejectUser = async (req, res) => {
       message: "User rejected and deleted successfully",
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    next(error);
   }
 };
 
