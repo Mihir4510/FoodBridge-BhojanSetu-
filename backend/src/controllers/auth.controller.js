@@ -1,5 +1,6 @@
 const usermodel = require("../models/user.model");
 const jwt = require("jsonwebtoken");
+const sendEmail = require("../utils/email");
 
 //register controller
 /*
@@ -7,7 +8,7 @@ const jwt = require("jsonwebtoken");
 */
 
 async function userregistercontroller(req, res) {
-  const { email, name, password, role } = req.body;
+  const { email, name, password, role , latitude, longitude } = req.body;
 
   // for admin only
   if (role === "admin") {
@@ -31,6 +32,10 @@ async function userregistercontroller(req, res) {
     email,
     name,
     password,
+    location: {
+        type: "Point",
+        coordinates: [longitude, latitude]
+    }
   };
 
   // Only add role if it is valid and not empty
@@ -40,6 +45,14 @@ async function userregistercontroller(req, res) {
 
   // Create user
   const user = await usermodel.create(userData);
+
+  // ---- SEND WELCOME EMAIL ----
+  await sendEmail({
+    to: user.email,
+    subject: "Welcome to BhojanSetu!",
+    text: `Hello ${user.name},\n\nThank you for registering on BhojanSetu. We’re excited to have you on board!`,
+    html: `<h2>Hello ${user.name},</h2><p>Thank you for registering on <strong>BhojanSetu</strong>. We’re excited to have you on board!</p>`
+  });
 
   // Generate token
   const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
