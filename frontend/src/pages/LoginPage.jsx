@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../components/auth/AuthLayout";
 import InputField from "../components/auth/InputField";
-import axios from "axios";
+import { loginUser } from "../service/authService";
 
 // ── Password strength (reused in Register) ───────────────
 export const getPasswordStrength = (password) => {
@@ -54,7 +54,12 @@ const Login = () => {
 
     setLoading(true);
     try {
-      const res = await axios.post("/api/auth/login", form, { withCredentials: true });
+      const res = await loginUser(form);
+
+    // Store JWT token
+    localStorage.setItem("token", res.data.token);
+
+
       const role = res.data?.user?.role;
       if (role === "admin")         navigate("/admin/dashboard");
       else if (role === "organization") navigate("/ngo/dashboard");

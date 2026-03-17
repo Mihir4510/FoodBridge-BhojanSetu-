@@ -1,11 +1,12 @@
 // src/pages/Register.jsx
 
-import { useState } from "react";
+import { useState , useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import AuthLayout from "../components/auth/AuthLayout";
 import InputField from "../components/auth/InputField";
 import { getPasswordStrength } from "./LoginPage";
-import axios from "axios";
+
+import { registerUser } from "../service/authService";
 
 // ── Role config ───────────────────────────────────────────
 const ROLES = [
@@ -72,6 +73,7 @@ const Register = () => {
   const [success, setSuccess]   = useState(false);
   const [apiError, setApiError] = useState("");
   const [errors, setErrors]     = useState({});
+  const [coordinates, setCoordinates] = useState([null, null]);
 
   const [form, setForm] = useState({
     name:             "",
@@ -88,6 +90,21 @@ const Register = () => {
     address:          "",
     // location (sent as GeoJSON — for simplicity, city string here)
   });
+  useEffect(() => {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+
+        setCoordinates([longitude, latitude]);
+      },
+      (error) => {
+        console.log("Location permission denied");
+      }
+    );
+  }
+}, []);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -133,8 +150,8 @@ const Register = () => {
         phone:    form.phone,
         location: {
           type: "Point",
-          coordinates: [0, 0], // Replace with real geocoding if needed
-          city: form.city,
+         coordinates: coordinates 
+         
         },
         ...(role === "organization" && {
           ngoName:        form.ngoName,
@@ -146,7 +163,7 @@ const Register = () => {
         }),
       };
 
-      await axios.post("/api/auth/register", payload);
+      await registerUser(payload);
       setSuccess(true);
       setTimeout(() => navigate("/login"), 3000);
     } catch (err) {

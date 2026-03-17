@@ -28,15 +28,35 @@ async function userregistercontroller(req, res) {
   }
 
   // user data
+  // const userData = {
+  //   email,
+  //   name,
+  //   password,
+  //   location: {
+  //       type: "Point",
+  //       coordinates: [longitude, latitude]
+  //   }
+  // };
   const userData = {
-    email,
-    name,
-    password,
-    location: {
-        type: "Point",
-        coordinates: [longitude, latitude]
-    }
+  name: req.body.name,
+  email: req.body.email,
+  password: req.body.password,
+  role: req.body.role,
+};
+
+if (
+  req.body.location &&
+  req.body.location.coordinates &&
+  req.body.location.coordinates[0] !== null &&
+  req.body.location.coordinates[1] !== null
+) {
+  userData.location = {
+    type: "Point",
+    coordinates: req.body.location.coordinates,
   };
+}
+
+
 
   // Only add role if it is valid and not empty
   if (role && role.trim() !== "") {
@@ -80,6 +100,7 @@ async function userregistercontroller(req, res) {
 */
 async function userlogincontroller(req, res) {
   const { email, password } = req.body;
+ console.log(req.body)
 
   const user = await usermodel
   .findOne({ email })
@@ -118,7 +139,37 @@ async function userlogincontroller(req, res) {
   });
 }
 
+//logout contoller
+/*
+--POST /api/auth/login
+*/
+const logoutController = (req, res) => {
+  try {
+    res.cookie("token", "", {
+      httpOnly: true, // JS cannot access cookie
+      secure:false,
+      sameSite: "strict", // prevent CSRF
+      expires: new Date(0), // expire immediately
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Logged out successfully",
+    });
+  } catch (error) {
+    console.error("Logout Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong during logout",
+    });
+  }
+};
+
+
+
 module.exports = {
+  
   userregistercontroller,
   userlogincontroller,
+  logoutController
 };
