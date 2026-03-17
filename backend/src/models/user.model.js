@@ -20,13 +20,24 @@ const userSchema = mongoose.Schema(
             type: String,
             required: [true, 'Please add a password'],
             minlength: 6,
-            select: false, // Prevents password from being returned in queries by default
+            select: false, 
         },
         role: {
             type: String,
             enum: ['restaurant', 'individual', 'organization','admin'],
             default: 'individual',
         },
+            location: {
+        type: {
+            type: String,
+            enum: ["Point"],
+            default: "Point"
+        },
+        coordinates: {
+            type: [Number] ,// [lng, lat]
+            default: undefined
+        }
+    },
         isApproved: {
             type: Boolean,
             default: function () {
@@ -46,5 +57,10 @@ userSchema.pre('save', async function () {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
 });
+userSchema.methods.comparePassword = async function (enteredPassword) {
+    return await bcrypt.compare(enteredPassword, this.password);
+};
+
+userSchema.index({ location: "2dsphere" });
 
 module.exports = mongoose.model('User', userSchema);

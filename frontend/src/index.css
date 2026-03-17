@@ -1,1 +1,35 @@
 @import "tailwindcss";
+
+@keyframes slideDown {
+  from {
+    transform: translateY(-40px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@fontFamily: {
+  playfair: ['"Playfair Display"', 'serif'],
+  dm: ['"DM Sans"', 'sans-serif'],
+}
+/* Hide scrollbar for Chrome, Safari, Edge */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for Firefox */
+html {
+  scrollbar-width: none;
+}
+
+/* Hide scrollbar for IE/Edge */
+body {
+  -ms-overflow-style: none;
+}

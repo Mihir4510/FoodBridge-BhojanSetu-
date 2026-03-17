@@ -1,12 +1,48 @@
-import React from 'react'
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import LandingPage from "./pages/LandingPage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
 
-const App = () => {
+
+import NgoDashboard from "./pages/dashboard/NgoDashboard";
+import DonorDashboard from "./pages/dashboard/DonorDashboard";
+import AdminRoutes from './routes/AdminRoutes';
+
+import ProtectedRoute from "./components/ProtectedRoute";
+
+function App() {
   return (
-    <div className='bg-red-400 h-cover'>
-      app
+    <BrowserRouter>
 
-    </div>
-  )
+      <Routes>
+
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+ {AdminRoutes}
+
+        <Route
+          path="/ngo/dashboard"
+          element={
+            <ProtectedRoute>
+              <NgoDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/donor/dashboard"
+          element={
+            <ProtectedRoute>
+              <DonorDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+      </Routes>
+
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;

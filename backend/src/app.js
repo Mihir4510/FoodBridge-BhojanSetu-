@@ -1,3 +1,4 @@
+const cors = require("cors");
 const express = require("express");
 const cookieparser = require ("cookie-parser")
 const globalErrorHandler = require("./middleware/error.middleware");
@@ -8,11 +9,13 @@ const donationRouter = require("./routes/donation.routes");
 const adminRoutes = require("./routes/admin.routes");
 
 
+
 const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(cookieparser())
+app.use(cookieparser());
+app.use(cors());
 
 
 // Routes
