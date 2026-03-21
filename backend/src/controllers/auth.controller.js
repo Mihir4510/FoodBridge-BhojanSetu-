@@ -201,8 +201,7 @@ async function verifyOtpController(req, res) {
   if (!user) {
     return res.status(404).json({ message: "User not found" });
   }
-  console.log("DB OTP:", user.otp);
-console.log("Entered OTP:", otp);
+  
 
   // OTP match check
   if (user.otp != otp) {
