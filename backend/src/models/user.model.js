@@ -45,6 +45,17 @@ const userSchema = mongoose.Schema(
                 return this.role === 'individual';
             },
         },
+       otp: {
+  type: String,
+},
+otpExpiry: {
+  type: Date,
+},
+isVerified: {
+  type: Boolean,
+  default: false,
+},
+ 
     },
     {
         timestamps: true,

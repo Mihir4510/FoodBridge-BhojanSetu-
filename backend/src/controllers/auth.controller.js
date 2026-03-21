@@ -1,6 +1,7 @@
 const usermodel = require("../models/user.model");
 const jwt = require("jsonwebtoken");
 const sendEmail = require("../utils/email");
+const generateOTP = require("../utils/otp");
 
 //register controller
 /*
@@ -62,17 +63,36 @@ if (
   if (role && role.trim() !== "") {
     userData.role = role;
   }
+  // ✅ Generate OTP
+const otp = generateOTP();
+
+// ✅ Store OTP in userData
+userData.otp = otp;
+userData.otpExpiry = Date.now() + 5 * 60 * 1000; // 5 minutes
+userData.isVerified = false;
 
   // Create user
   const user = await usermodel.create(userData);
 
-  // ---- SEND WELCOME EMAIL ----
-  await sendEmail({
-    to: user.email,
-    subject: "Welcome to BhojanSetu!",
-    text: `Hello ${user.name},\n\nThank you for registering on BhojanSetu. We’re excited to have you on board!`,
-    html: `<h2>Hello ${user.name},</h2><p>Thank you for registering on <strong>BhojanSetu</strong>. We’re excited to have you on board!</p>`
-  });
+  // ---- SEND EMAIL WITH OTP ----
+await sendEmail({
+  to: user.email,
+  subject: "Welcome to BhojanSetu!",
+  
+  text: `Hello ${user.name},
+
+Thank you for registering on BhojanSetu.
+
+Your OTP is ${otp}. It will expire in 5 minutes.`,
+
+  html: `
+    <h2>Hello ${user.name},</h2>
+    <p>Thank you for registering on <strong>BhojanSetu</strong>.</p>
+    <p>Your OTP is: <b>${otp}</b></p>
+    <p>Valid for 5 minutes</p>
+  `
+});
+  
 
   // Generate token
   const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
@@ -119,6 +139,14 @@ async function userlogincontroller(req, res) {
       message: "Email or Password is INVALID",
     });
   }
+  // verify otp
+
+if (!user.isVerified) {
+  return res.status(403).json({
+    message: "Please verify OTP first",
+  });
+  
+}
   const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
     expiresIn: "3d",
   });
@@ -164,6 +192,39 @@ const logoutController = (req, res) => {
     });
   }
 };
+// VERIFY OTP CONTROLLER
+async function verifyOtpController(req, res) {
+  const { email, otp } = req.body;
+
+  const user = await usermodel.findOne({ email });
+
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  console.log("DB OTP:", user.otp);
+console.log("Entered OTP:", otp);
+
+  // OTP match check
+  if (user.otp != otp) {
+    return res.status(400).json({ message: "Invalid OTP" });
+  }
+
+  // Expiry check
+  if (user.otpExpiry < Date.now()) {
+    return res.status(400).json({ message: "OTP expired" });
+  }
+
+  // Success
+  user.isVerified = true;
+  user.otp = null;
+  user.otpExpiry = null;
+
+  await user.save();
+
+  res.status(200).json({
+    message: "OTP verified successfully",
+  });
+}
 
 
 
@@ -171,5 +232,6 @@ module.exports = {
   
   userregistercontroller,
   userlogincontroller,
-  logoutController
+  logoutController,
+  verifyOtpController 
 };

@@ -15,7 +15,10 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(cookieparser());
-app.use(cors());
+app.use(cors({
+  origin: "http://localhost:5137", // your frontend port
+  credentials: true
+}));
 
 
 // Routes

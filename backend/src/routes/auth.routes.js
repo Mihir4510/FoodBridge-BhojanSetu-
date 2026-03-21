@@ -17,6 +17,9 @@ router.post("/login",validateLogin ,authcontroller.userlogincontroller)
 //POST /api/auth/logoout
 router.post("/logout",authcontroller.logoutController)
 
+//POST/api/auth/verify-otp
+router.post("/verify-otp", authcontroller.verifyOtpController);
+
 module.exports=router
 
 
