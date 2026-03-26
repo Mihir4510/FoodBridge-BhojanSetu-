@@ -81,6 +81,9 @@ if (
 
   res.cookie("token", token, {
     httpOnly: true,
+    secure: false,
+  sameSite: "lax",
+  path: "/",
   });
 
   res.status(201).json({
@@ -125,7 +128,9 @@ async function userlogincontroller(req, res) {
 
   res.cookie("token", token, {
     httpOnly: true,
-    sameSite: "strict"
+    secure: false,
+  sameSite: "lax",
+  path: "/",
 });
   res.status(200).json({
     user: {
@@ -141,7 +146,7 @@ async function userlogincontroller(req, res) {
 
 //logout contoller
 /*
---POST /api/auth/login
+--POST /api/auth/logout
 */
 const logoutController = (req, res) => {
   try {
@@ -168,7 +173,7 @@ const logoutController = (req, res) => {
 
 
 module.exports = {
-  
+ 
   userregistercontroller,
   userlogincontroller,
   logoutController

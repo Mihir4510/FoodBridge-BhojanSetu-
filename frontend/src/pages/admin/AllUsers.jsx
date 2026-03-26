@@ -22,8 +22,16 @@ const AllUsers = () => {
         setUsers(data);
         setFiltered(data);
       })
-      .catch((e) => setError(e.response?.data?.message || "Failed to load users."))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+      console.log("🔥 FULL ERROR:", e);                // complete error object
+      console.log("📦 RESPONSE:", e.response);        // backend response
+      console.log("📄 DATA:", e.response?.data);      // actual error message
+      console.log("📊 STATUS:", e.response?.status);  // status code
+      
+      setError(e.response?.data?.message || "Failed to load users.");
+    })
+    .finally(() => setLoading(false));
+      
   }, []);
 
   useEffect(() => {

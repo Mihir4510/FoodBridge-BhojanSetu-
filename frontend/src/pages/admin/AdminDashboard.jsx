@@ -32,6 +32,7 @@ const AdminDashboard = () => {
         setDonations((dRes.data?.donations || dRes.data || []).slice(0, 6));
       } catch (e) {
         setError(e.response?.data?.message || "Failed to load dashboard data.");
+        // console.log(e)
       } finally {
         setLoading(false);
       }
@@ -73,7 +74,7 @@ const AdminDashboard = () => {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-[16px] font-bold text-[#111827]">⏳ Pending Approvals</h2>
-            <p className="text-[12px] text-[#9CA3AF]">NGOs awaiting verification</p>
+            <p className="text-[12px] text-[#9CA3AF]">NGOs and Resturant awaiting verification</p>
           </div>
           <Link to="/admin/pending" className="text-[13px] font-semibold text-[#2D6A4F] hover:underline no-underline">
             View all →

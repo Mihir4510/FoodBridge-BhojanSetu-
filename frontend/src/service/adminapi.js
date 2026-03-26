@@ -24,5 +24,5 @@ export const getTopDonors = () => API.get("/analytics/top-donors");
 export const getPriorityAnalytics = () => API.get("/analytics/urgent-donations");
 
 // ── New Analytics APIs ───────────────────────────────────
-export const getLocationAnalytics = () => API.get("/analytics/location");
+export const getLocationAnalytics = () => API.get("/analytics/locations");
 export const getAvgCollectionTime = () => API.get("/analytics/avg-collection-time");

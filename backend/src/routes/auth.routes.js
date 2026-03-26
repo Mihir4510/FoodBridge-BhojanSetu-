@@ -14,6 +14,8 @@ router.post("/register",validateRegister,authcontroller.userregistercontroller)
 router.post("/login",validateLogin ,authcontroller.userlogincontroller)
 
 
+
+
 //POST /api/auth/logoout
 router.post("/logout",authcontroller.logoutController)
 

@@ -4,11 +4,11 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 
 
-import NgoDashboard from "./pages/dashboard/NgoDashboard";
-import DonorDashboard from "./pages/dashboard/DonorDashboard";
-import AdminRoutes from './routes/AdminRoutes';
 
-import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoutes from './routes/AdminRoutes';
+import DonorRoutes from './routes/DonorRoutes'
+
+
 
 function App() {
   return (
@@ -19,25 +19,11 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
- {AdminRoutes}
+         
+        <Route path="/admin/*" element={<AdminRoutes />} />
+        <Route path="/donor/*" element={<DonorRoutes />} />
+        {/* {DonorRoutes} */}
 
-        <Route
-          path="/ngo/dashboard"
-          element={
-            <ProtectedRoute>
-              <NgoDashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/donor/dashboard"
-          element={
-            <ProtectedRoute>
-              <DonorDashboard />
-            </ProtectedRoute>
-          }
-        />
 
       </Routes>
 
