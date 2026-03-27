@@ -27,16 +27,6 @@ async function userregistercontroller(req, res) {
     });
   }
 
-  // user data
-  // const userData = {
-  //   email,
-  //   name,
-  //   password,
-  //   location: {
-  //       type: "Point",
-  //       coordinates: [longitude, latitude]
-  //   }
-  // };
   const userData = {
   name: req.body.name,
   email: req.body.email,
@@ -130,7 +120,7 @@ async function userlogincontroller(req, res) {
     httpOnly: true,
     secure: false,
   sameSite: "lax",
-  path: "/",
+ 
 });
   res.status(200).json({
     user: {
@@ -144,6 +134,28 @@ async function userlogincontroller(req, res) {
   });
 }
 
+
+// /me api
+const getMe = async (req, res) => {
+  try {
+    // req.user is already attached by protect middleware
+    const user = req.user;
+ 
+    res.status(200).json({
+      user: {
+        id:             user._id,
+        name:           user.name,
+        email:          user.email,
+        role:           user.role,
+        restaurantName: user.restaurantName || null,
+        phone:          user.phone          || null,
+        isApproved:     user.isApproved     || false,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error." });
+  }
+};
 //logout contoller
 /*
 --POST /api/auth/logout
@@ -176,5 +188,6 @@ module.exports = {
  
   userregistercontroller,
   userlogincontroller,
-  logoutController
+  logoutController,
+  getMe
 };

@@ -3,7 +3,16 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import AdminLayout from "../../components/admin/AdminLayout";
-import { StatCard, Spinner, ErrorBanner, Badge, Table, Tr, Td, Empty } from "../../components/admin/AdminUI";
+import {
+  StatCard,
+  Spinner,
+  ErrorBanner,
+  Badge,
+  Table,
+  Tr,
+  Td,
+  Empty,
+} from "../../components/admin/AdminUI";
 import {
   getDashboardStats,
   getPendingUsers,
@@ -13,11 +22,11 @@ import {
 } from "../../service/adminapi";
 
 const AdminDashboard = () => {
-  const [stats, setStats]         = useState(null);
-  const [pending, setPending]     = useState([]);
+  const [stats, setStats] = useState(null);
+  const [pending, setPending] = useState([]);
   const [donations, setDonations] = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -27,7 +36,7 @@ const AdminDashboard = () => {
           getPendingUsers(),
           getAllDonations(),
         ]);
-        setStats(sRes.data);
+        setStats(sRes.data.stats);
         setPending(pRes.data?.users || pRes.data || []);
         setDonations((dRes.data?.donations || dRes.data || []).slice(0, 6));
       } catch (e) {
@@ -44,39 +53,115 @@ const AdminDashboard = () => {
     try {
       await approveUser(id);
       setPending((prev) => prev.filter((u) => u._id !== id));
-    } catch { alert("Failed to approve user."); }
+    } catch {
+      alert("Failed to approve user.");
+    }
   };
 
   const handleReject = async (id) => {
     try {
       await rejectUser(id);
       setPending((prev) => prev.filter((u) => u._id !== id));
-    } catch { alert("Failed to reject user."); }
+    } catch {
+      alert("Failed to reject user.");
+    }
   };
 
-  if (loading) return <AdminLayout title="Dashboard"><Spinner /></AdminLayout>;
+  if (loading)
+    return (
+      <AdminLayout title="Dashboard">
+        <Spinner />
+      </AdminLayout>
+    );
 
   return (
-    <AdminLayout title="Dashboard" subtitle="Welcome back! Here's what's happening on BhojanSetu.">
+    <AdminLayout
+      title="Dashboard"
+      subtitle="Welcome back! Here's what's happening on BhojanSetu."
+    >
       {error && <ErrorBanner message={error} />}
 
       {/* ── Stat cards ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-5 mb-8">
-        <StatCard icon="👥" label="Total Users"      value={stats?.totalUsers        ?? "—"} color="green"  />
-        <StatCard icon="⏳" label="Pending Approval" value={stats?.pendingUsers       ?? "—"} color="orange" />
-        <StatCard icon="🍱" label="Total Donations"  value={stats?.totalDonations     ?? "—"} color="blue"   />
-        <StatCard icon="✅" label="Completed"        value={stats?.completedDonations ?? "—"} color="green"  />
-        <StatCard icon="🔴" label="High Priority"    value={stats?.highPriority       ?? "—"} color="red"    />
+        <StatCard
+          icon="👥"
+          label="Total Users"
+          value={stats?.totalUsers ?? "—"}
+          color="green"
+        />
+
+        <StatCard
+          icon="🙋"
+          label="Individuals"
+          value={stats?.totalIndividuals ?? "—"}
+          color="blue"
+        />
+
+        <StatCard
+          icon="🍽️"
+          label="Restaurants"
+          value={stats?.totalRestaurants ?? "—"}
+          color="orange"
+        />
+
+        <StatCard
+          icon="🏢"
+          label="Organizations"
+          value={stats?.totalOrganizations ?? "—"}
+          color="purple"
+        />
+
+        <StatCard
+          icon="⏳"
+          label="Pending Approvals"
+          value={stats?.pendingApprovals ?? "—"}
+          color="yellow"
+        />
+
+        <StatCard
+          icon="🍱"
+          label="Total Donations"
+          value={stats?.totalDonations ?? "—"}
+          color="blue"
+        />
+
+        <StatCard
+          icon="📦"
+          label="Pending Donations"
+          value={stats?.pendingDonations ?? "—"}
+          color="orange"
+        />
+
+        <StatCard
+          icon="✅"
+          label="Accepted Donations"
+          value={stats?.acceptedDonations ?? "—"}
+          color="green"
+        />
+
+        <StatCard
+          icon="🚚"
+          label="Collected Donations"
+          value={stats?.collectedDonations ?? "—"}
+          color="teal"
+        />
       </div>
 
       {/* ── Pending users ── */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-[16px] font-bold text-[#111827]">⏳ Pending Approvals</h2>
-            <p className="text-[12px] text-[#9CA3AF]">NGOs and Resturant awaiting verification</p>
+            <h2 className="text-[16px] font-bold text-[#111827]">
+              ⏳ Pending Approvals
+            </h2>
+            <p className="text-[12px] text-[#9CA3AF]">
+              NGOs and Resturant awaiting verification
+            </p>
           </div>
-          <Link to="/admin/pending" className="text-[13px] font-semibold text-[#2D6A4F] hover:underline no-underline">
+          <Link
+            to="/admin/pending"
+            className="text-[13px] font-semibold text-[#2D6A4F] hover:underline no-underline"
+          >
             View all →
           </Link>
         </div>
@@ -90,9 +175,13 @@ const AdminDashboard = () => {
           <Table headers={["Name", "Email", "Role", "City", "Actions"]}>
             {pending.slice(0, 5).map((u, i) => (
               <Tr key={u._id} even={i % 2 === 1}>
-                <Td><span className="font-semibold text-[#111827]">{u.name}</span></Td>
+                <Td>
+                  <span className="font-semibold text-[#111827]">{u.name}</span>
+                </Td>
                 <Td>{u.email}</Td>
-                <Td><Badge status={u.role} /></Td>
+                <Td>
+                  <Badge status={u.role} />
+                </Td>
                 <Td>{u.location?.city || u.city || "—"}</Td>
                 <Td>
                   <div className="flex gap-2">
@@ -120,26 +209,45 @@ const AdminDashboard = () => {
       <div>
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-[16px] font-bold text-[#111827]">🍱 Recent Donations</h2>
-            <p className="text-[12px] text-[#9CA3AF]">Latest food rescue activity</p>
+            <h2 className="text-[16px] font-bold text-[#111827]">
+              🍱 Recent Donations
+            </h2>
+            <p className="text-[12px] text-[#9CA3AF]">
+              Latest food rescue activity
+            </p>
           </div>
-          <Link to="/admin/donations" className="text-[13px] font-semibold text-[#2D6A4F] hover:underline no-underline">
+          <Link
+            to="/admin/donations"
+            className="text-[13px] font-semibold text-[#2D6A4F] hover:underline no-underline"
+          >
             View all →
           </Link>
         </div>
 
         <Table
           headers={["Donor", "Type", "Quantity", "Status", "Priority", "Date"]}
-          empty={donations.length === 0 ? <Empty message="No donations yet" /> : null}
+          empty={
+            donations.length === 0 ? <Empty message="No donations yet" /> : null
+          }
         >
           {donations.map((d, i) => (
             <Tr key={d._id} even={i % 2 === 1}>
-              <Td><span className="font-semibold text-[#111827]">{d.donor?.name || "—"}</span></Td>
+              <Td>
+                <span className="font-semibold text-[#111827]">
+                  {d.donor?.name || "—"}
+                </span>
+              </Td>
               <Td className="capitalize">{d.foodType || d.type || "—"}</Td>
               <Td>{d.quantity || "—"}</Td>
-              <Td><Badge status={d.status} /></Td>
-              <Td><Badge status={d.priority} /></Td>
-              <Td className="text-[#9CA3AF]">{d.createdAt ? new Date(d.createdAt).toLocaleDateString() : "—"}</Td>
+              <Td>
+                <Badge status={d.status} />
+              </Td>
+              <Td>
+                <Badge status={d.priority} />
+              </Td>
+              <Td className="text-[#9CA3AF]">
+                {d.createdAt ? new Date(d.createdAt).toLocaleDateString() : "—"}
+              </Td>
             </Tr>
           ))}
         </Table>

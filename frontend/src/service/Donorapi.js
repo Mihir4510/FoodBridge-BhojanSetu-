@@ -8,13 +8,13 @@ const API = axios.create({
 });
 
 // ── Donor / Restaurant APIs ───────────────────────────────
-export const createDonation  = (data) => API.post("/create", data);
-export const getMyDonations  = ()     => API.get("/my-donation");
+export const createDonation  = (data) => API.post("/donation/create", data);
+export const getMyDonations  = ()     => API.get("/donation/my-donations");
 
 // ── Organization (NGO) APIs ───────────────────────────────
-export const getAllRequests   = ()     => API.get("/request");
-export const acceptDonation  = (id)   => API.put(`/accept/${id}`);
-export const collectDonation = (id)   => API.put(`/collect/${id}`);
+export const getAllRequests   = ()     => API.get("donation/requests");
+export const acceptDonation  = (id)   => API.put(`donation/accept/${id}`);
+export const collectDonation = (id)   => API.put(`donation/collect/${id}`);
 
 // ── Auth ──────────────────────────────────────────────────
 export const logoutUser      = ()     => API.post("/auth/logout");
