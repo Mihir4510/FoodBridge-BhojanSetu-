@@ -19,7 +19,7 @@ router.post(
 // Donor/Restaurant views donations
 router.get(
     "/my-donations",
-    protect,
+     protect,
     authorizeRoles("individual", "restaurant"),
     donationController.getDonorDonations
 );

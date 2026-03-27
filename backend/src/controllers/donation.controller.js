@@ -4,129 +4,110 @@ const uploadFile = require("../services/storage.services");
 const User = require("../models/user.model");
 const calculatePriority = require("../utils/priorityCalculator");
 
-// Create Donation (Donor or Restaurant)
+
 async function createDonation(req, res) {
   try {
-    const { type, quantity, description, organizationId } = req.body;
+    const {
+      title,
+      foodType,
+      quantity,
+      unit,
+      pickupAddress,
+      expiryTime,
+      contactNumber,
+      notes,
+      priority,
+      organizationId,
+    } = req.body;
 
     let imageData = {};
 
-    // Upload Image to ImageKit
+    // Upload Image if exists
     if (req.file) {
-      const uploadedImage = await uploadFile(
-        req.file.buffer,
-        req.file.originalname,
-      );
-
+      const uploadedImage = await uploadFile(req.file.buffer, req.file.originalname);
       imageData = {
         url: uploadedImage.url,
         fileId: uploadedImage.fileId,
       };
     }
 
-    // CHECK donor location exists
+    // Check donor location
     if (!req.user.location || !req.user.location.coordinates) {
-      return res.status(400).json({
-        success: false,
-        message: "User location not found",
-      });
+      return res.status(400).json({ success: false, message: "User location not found" });
     }
-
-    // Get donor location from registered user
     const donorLocation = req.user.location.coordinates;
 
-    // Find nearby organizations within 10km
-    const nearbyOrganizations = await User.find({
+    // 1️⃣ Find NGOs within 10 km
+    let nearbyOrganizations = await User.find({
       role: "organization",
       location: {
         $near: {
-          $geometry: {
-            type: "Point",
-            coordinates: donorLocation,
-          },
-          $maxDistance: 1000000000000,
+          $geometry: { type: "Point", coordinates: donorLocation },
+          $maxDistance: 10000, // 10 km
         },
       },
     });
 
-    // CASE 1 → Only one organization nearby
-    if (nearbyOrganizations.length === 1) {
-      const orgId = nearbyOrganizations[0]._id;
-
-      const donation = await Donation.create({
-        donorId: req.user._id,
-        organizationId: nearbyOrganizations[0]._id,
-        type,
-        quantity,
-        description,
-        image: imageData || undefined,
-        location: {
-          type: "Point",
-          coordinates: donorLocation,
-        },
-      });
-      // SOCKET NOTIFICATION
-      const io = getIO();
-      console.log("Sending notification to:", orgId);
-
-      io.to(orgId.toString()).emit("newDonation", {
-        message: "New donation assigned to you",
-      });
-
-      return res.status(201).json({
-        success: true,
-        message: "Donation automatically assigned to nearest organization",
-        donation,
-      });
-    }
-
-    // CASE 2 → Multiple organizations
-    if (nearbyOrganizations.length > 1 && !organizationId) {
-      return res.status(200).json({
-        success: true,
-        message: "Multiple organizations found. Select one.",
-        recommended: nearbyOrganizations[0],
-        organizations: nearbyOrganizations,
-      });
-    }
-
-    // CASE 3 → No organization within 10km
+    // 2️⃣ CASE: No nearby NGOs → fallback to all NGOs
+    let fallbackUsed = false;
     if (nearbyOrganizations.length === 0) {
-      const allOrganizations = await User.find({ role: "organization" });
+      nearbyOrganizations = await User.find({ role: "organization" });
+      fallbackUsed = true;
+    }
+
+    // Determine finalOrgId
+    let finalOrgId = organizationId;
+
+    // 3️⃣ CASE: Exactly 1 NGO → auto assign
+    if (nearbyOrganizations.length === 1 && !finalOrgId) {
+      finalOrgId = nearbyOrganizations[0]._id;
+    }
+
+    // 4️⃣ CASE: Multiple NGOs → send top 3 closest if nearby, else send all
+    if (nearbyOrganizations.length > 1 && !finalOrgId) {
+      let orgsToSend = nearbyOrganizations;
+
+      if (!fallbackUsed) {
+        // nearby orgs → sort by distance and send top 3
+        orgsToSend = nearbyOrganizations.slice(0, 3);
+      }
 
       return res.status(200).json({
         success: true,
-        message:
-          "No nearby organizations within 10km. Showing nearest available NGOs.",
-        organizations: allOrganizations,
+        message: fallbackUsed
+          ? "No nearby NGOs found — showing all registered organizations"
+          : "Multiple nearby NGOs found — please select one",
+        organizations: orgsToSend,
       });
     }
 
-    // CREATE DONATION
+    // ✅ CREATE donation
     const donation = await Donation.create({
       donorId: req.user._id,
-      organizationId,
-      type,
+      organizationId: finalOrgId,
+      title,
+      foodType,
       quantity,
-      description,
-      image: imageData || undefined,
-      location: {
-        type: "Point",
-        coordinates: donorLocation,
-      },
+      unit,
+      pickupAddress,
+      expiryTime,
+      contactNumber,
+      notes,
+      priority,
+      image: imageData,
+      location: { type: "Point", coordinates: donorLocation },
     });
-    // SOCKET NOTIFICATION
-    console.log("Sending notification to:", organizationId);
 
-    io.to(organizationId.toString()).emit("newDonation", {
-      message: "New donation assigned to you",
-    });
+    // SOCKET notification
+    const io = getIO();
+    io.to(finalOrgId.toString()).emit("newDonation", { message: "New donation assigned" });
 
     res.status(201).json({
       success: true,
       message: "Donation created successfully",
       donation,
     });
+
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

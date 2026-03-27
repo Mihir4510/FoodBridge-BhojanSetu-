@@ -12,3 +12,7 @@ export const registerUser = (data) => {
 export const loginUser = (data) => {
   return API.post("/login", data);
 };
+
+export const getMe = () => API.get("/me");
+
+export const logoutUser = ()=> API.post("/logout")

@@ -1,10 +1,13 @@
-// src/components/donor/DonationForm.jsx
+// Handles all 3 backend response cases:
+// Case 1: 1 NGO found  → auto create donation
+// Case 2: Many NGOs   → show dropdown, resubmit with organizationId
+// Case 3: No NGO      → show error toast
 
 import { useState } from "react";
 import { createDonation } from "../../service/Donorapi";
 import { FormField, inputCls } from "./DonorUI";
 
-// ── Auto priority calculator ──────────────────────────────
+// ── Auto priority from expiry time ────────────────────────
 const calcPriority = (expiryTime) => {
   if (!expiryTime) return "low";
   const hours = (new Date(expiryTime) - new Date()) / 3600000;
@@ -15,7 +18,7 @@ const calcPriority = (expiryTime) => {
 
 const initialState = {
   title:         "",
-  foodType:      "veg",
+  foodType:      "Food",
   quantity:      "",
   unit:          "plates",
   address:       "",
@@ -25,17 +28,20 @@ const initialState = {
 };
 
 // ── DonationForm ──────────────────────────────────────────
-// Note: Edit is disabled — your backend only has POST /create
-// For edit support, add a PUT /update/:id route to your backend
 const DonationForm = ({ onSuccess, onCancel, toast }) => {
-  const [form,      setForm]      = useState(initialState);
-  const [errors,    setErrors]    = useState({});
+  const [form,       setForm]       = useState(initialState);
+  const [errors,     setErrors]     = useState({});
   const [submitting, setSubmitting] = useState(false);
+
+  // ── NGO selection state ───────────────────────────────
+  const [orgOptions,   setOrgOptions]   = useState([]); // list from backend
+  const [selectedOrg,  setSelectedOrg]  = useState(""); // chosen org id
+  const [noNGO,        setNoNGO]        = useState(false); // Case 3 flag
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-    setErrors((prev) => ({ ...prev, [name]: "" }));
+    setForm((prev)   => ({ ...prev,   [name]: value }));
+    setErrors((prev) => ({ ...prev,   [name]: "" }));
   };
 
   const validate = () => {
@@ -44,8 +50,14 @@ const DonationForm = ({ onSuccess, onCancel, toast }) => {
     if (!form.quantity || form.quantity <= 0) errs.quantity      = "Enter a valid quantity";
     if (!form.address.trim())                 errs.address       = "Pickup address is required";
     if (!form.expiryTime)                     errs.expiryTime    = "Expiry time is required";
-    else if (new Date(form.expiryTime) <= new Date()) errs.expiryTime = "Expiry must be in the future";
+    else if (new Date(form.expiryTime) <= new Date())
+      errs.expiryTime = "Expiry must be in the future";
     if (!form.contactNumber.trim())           errs.contactNumber = "Contact number is required";
+
+    // If NGO dropdown is showing, user must select one
+    if (orgOptions.length > 0 && !selectedOrg)
+      errs.organization = "Please select an NGO to continue";
+
     return errs;
   };
 
@@ -55,35 +67,68 @@ const DonationForm = ({ onSuccess, onCancel, toast }) => {
     if (Object.keys(errs).length) { setErrors(errs); return; }
 
     setSubmitting(true);
+    setNoNGO(false);
+
     try {
-      // Payload matches your backend /create route
       const payload = {
-        title:         form.title,
-        foodType:      form.foodType,
-        quantity:      Number(form.quantity),
-        unit:          form.unit,
-        pickupAddress: form.address,
-        expiryTime:    form.expiryTime,
-        contactNumber: form.contactNumber,
-        notes:         form.notes,
-        priority:      calcPriority(form.expiryTime),
+        title:          form.title,
+        foodType:       form.foodType,
+        quantity:       Number(form.quantity),
+        unit:           form.unit,
+        pickupAddress:  form.address,
+        expiryTime:     form.expiryTime,
+        contactNumber:  form.contactNumber,
+        notes:          form.notes,
+        priority:       calcPriority(form.expiryTime),
+        organizationId: selectedOrg || undefined, // sent on 2nd submit
       };
 
-      await createDonation(payload);
-      toast.success("Donation created! Nearby NGOs have been notified. 🎉");
-      setForm(initialState);
-      onSuccess?.();
+      const res = await createDonation(payload);
+
+// CASE 2: Multiple NGOs → show dropdown
+if (res.data?.organizations && res.data.organizations.length > 0) {
+  setOrgOptions(res.data.organizations); // populate dropdown
+  toast.info(res.data.message || "Multiple NGOs found — please select one.");
+  return;
+}
+
+// CASE 1: Single NGO assigned → donation created
+if (res.data?.success && res.data?.donation) {
+  toast.success("Donation created! Nearby NGO has been notified. 🎉");
+  setForm(initialState);
+  setOrgOptions([]);
+  setSelectedOrg("");
+  onSuccess?.();
+  return;
+}
+
+// CASE 3: No NGOs → show toast / error message
+if (!res.data.success && res.data?.organizations?.length === 0) {
+  setNoNGO(true);
+  toast.error(res.data.message || "No NGOs available nearby");
+
+  return;
+}
     } catch (err) {
-      toast.error(err.response?.data?.message || "Something went wrong. Please try again.");
+      // Backend returned error (4xx / 5xx)
+      const msg = err.response?.data?.message || "Something went wrong. Please try again.";
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
   };
 
+  // ── Reset NGO selection ────────────────────────────────
+  const handleCancelOrgSelection = () => {
+    setOrgOptions([]);
+    setSelectedOrg("");
+    setErrors({});
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-5" noValidate>
 
-      {/* Title + Food Type */}
+      {/* ── Title + Food Type ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <FormField label="Food Title" error={errors.title} required>
           <input
@@ -100,11 +145,9 @@ const DonationForm = ({ onSuccess, onCancel, toast }) => {
             {["Food", "Grocery"].map((type) => (
               <label
                 key={type}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 cursor-pointer transition-all text-[13px] font-semibold capitalize ${
+                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 cursor-pointer transition-all text-[13px] font-semibold ${
                   form.foodType === type
-                    ? type === "Food"
-                      ? "border-[#2D6A4F] bg-[#D8F3DC] text-[#1A4731]"
-                      : "border-[#2D6A4F] bg-[#D8F3DC] text-[#1A4731]"
+                    ? "border-[#2D6A4F] bg-[#D8F3DC] text-[#1A4731]"
                     : "border-[#E5E7EB] text-[#9CA3AF] hover:border-[#D1D5DB]"
                 }`}
               >
@@ -116,14 +159,14 @@ const DonationForm = ({ onSuccess, onCancel, toast }) => {
                   onChange={handleChange}
                   className="sr-only"
                 />
-                {type === "Food" ? "🥦" : ""} {type}
+                {type === "Food" ? "🍛" : "🛒"} {type}
               </label>
             ))}
           </div>
         </FormField>
       </div>
 
-      {/* Quantity + Unit */}
+      {/* ── Quantity + Unit ── */}
       <div className="grid grid-cols-2 gap-4">
         <FormField label="Quantity" error={errors.quantity} required>
           <input
@@ -138,7 +181,12 @@ const DonationForm = ({ onSuccess, onCancel, toast }) => {
         </FormField>
 
         <FormField label="Unit">
-          <select name="unit" value={form.unit} onChange={handleChange} className={inputCls(false)}>
+          <select
+            name="unit"
+            value={form.unit}
+            onChange={handleChange}
+            className={inputCls(false)}
+          >
             <option value="plates">Plates</option>
             <option value="kg">Kilograms (kg)</option>
             <option value="litres">Litres</option>
@@ -147,7 +195,7 @@ const DonationForm = ({ onSuccess, onCancel, toast }) => {
         </FormField>
       </div>
 
-      {/* Pickup address */}
+      {/* ── Pickup Address ── */}
       <FormField label="Pickup Address" error={errors.address} required>
         <textarea
           name="address"
@@ -159,17 +207,18 @@ const DonationForm = ({ onSuccess, onCancel, toast }) => {
         />
       </FormField>
 
-      {/* Expiry + Contact */}
+      {/* ── Expiry + Contact ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <FormField label="Expiry Date & Time" error={errors.expiryTime} required>
           <input
-            name="expiryTime"
             type="datetime-local"
+            name="expiryTime"
             value={form.expiryTime}
             onChange={handleChange}
             min={new Date().toISOString().slice(0, 16)}
             className={inputCls(errors.expiryTime)}
           />
+          {/* Auto priority preview */}
           {form.expiryTime && (
             <p className={`text-[11px] font-semibold mt-1 ${
               calcPriority(form.expiryTime) === "high"   ? "text-red-500"
@@ -193,7 +242,7 @@ const DonationForm = ({ onSuccess, onCancel, toast }) => {
         </FormField>
       </div>
 
-      {/* Notes */}
+      {/* ── Notes ── */}
       <FormField label="Additional Notes">
         <textarea
           name="notes"
@@ -205,7 +254,108 @@ const DonationForm = ({ onSuccess, onCancel, toast }) => {
         />
       </FormField>
 
-      {/* Actions */}
+      {/* ── ⚠️ CASE 2: NGO Selection Dropdown ── */}
+      {orgOptions.length > 0 && (
+        <div className="bg-[#FEF3C7] border border-[#FDE68A] rounded-2xl p-5">
+          {/* Header */}
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <p className="text-[14px] font-bold text-[#92400E] flex items-center gap-2">
+                🏠 Multiple NGOs Found
+              </p>
+              <p className="text-[12px] text-[#92400E]/80 mt-0.5">
+                {orgOptions.length} NGOs are available. Please select one to receive your donation.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleCancelOrgSelection}
+              className="text-[#92400E]/60 hover:text-[#92400E] text-[12px] font-medium"
+            >
+              ✕ Cancel
+            </button>
+          </div>
+
+          <FormField label="Select NGO" error={errors.organization} required>
+            <select
+              value={selectedOrg}
+              onChange={(e) => {
+                setSelectedOrg(e.target.value);
+                setErrors((prev) => ({ ...prev, organization: "" }));
+              }}
+              className={inputCls(errors.organization)}
+            >
+              <option value="">-- Choose an NGO --</option>
+              {orgOptions.map((org) => (
+                <option key={org._id} value={org._id}>
+                  {org.name || org.restaurantName || org.email}
+                  {org.location?.city ? ` — ${org.location.city}` : ""}
+                </option>
+              ))}
+            </select>
+          </FormField>
+
+          {/* NGO cards preview */}
+          <div className="mt-3 space-y-2">
+            {orgOptions.slice(0, 3).map((org) => (
+              <label
+                key={org._id}
+                className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                  selectedOrg === org._id
+                    ? "border-[#E76F1A] bg-[#FDE8D5]"
+                    : "border-[#FDE68A] bg-white hover:border-[#E76F1A]/50"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="orgSelect"
+                  value={org._id}
+                  checked={selectedOrg === org._id}
+                  onChange={() => {
+                    setSelectedOrg(org._id);
+                    setErrors((prev) => ({ ...prev, organization: "" }));
+                  }}
+                  className="sr-only"
+                />
+                <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] flex items-center justify-center text-base flex-shrink-0">
+                  🏠
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[13px] font-semibold text-[#1A1A2E] truncate">
+                    {org.name || org.email}
+                  </p>
+                  {org.location?.city && (
+                    <p className="text-[11px] text-[#9CA3AF]">📍 {org.location.city}</p>
+                  )}
+                </div>
+                {selectedOrg === org._id && (
+                  <span className="text-[#E76F1A] text-[16px] flex-shrink-0">✓</span>
+                )}
+              </label>
+            ))}
+            {orgOptions.length > 3 && (
+              <p className="text-[11px] text-[#9CA3AF] text-center pt-1">
+                +{orgOptions.length - 3} more in dropdown above
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── ❌ CASE 3: No NGO available ── */}
+      {noNGO && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl px-5 py-4 flex items-start gap-3">
+          <span className="text-xl mt-0.5">😔</span>
+          <div>
+            <p className="text-[13px] font-bold text-red-700">No NGOs available nearby</p>
+            <p className="text-[12px] text-red-600 mt-0.5">
+              There are currently no NGOs registered in your area. Please try again later or contact support.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Actions ── */}
       <div className="flex flex-col sm:flex-row gap-3 pt-2">
         <button
           type="submit"
@@ -219,13 +369,18 @@ const DonationForm = ({ onSuccess, onCancel, toast }) => {
           {submitting ? (
             <span className="flex items-center justify-center gap-2">
               <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="white" strokeWidth="3" strokeOpacity="0.3" />
-                <path d="M12 2A10 10 0 0 1 22 12" stroke="white" strokeWidth="3" strokeLinecap="round" />
+                <circle cx="12" cy="12" r="10" stroke="white" strokeWidth="3" strokeOpacity="0.3"/>
+                <path d="M12 2A10 10 0 0 1 22 12" stroke="white" strokeWidth="3" strokeLinecap="round"/>
               </svg>
-              Creating donation...
+              {orgOptions.length > 0 ? "Confirming..." : "Creating..."}
             </span>
-          ) : "🍱 Create Donation"}
+          ) : (
+            orgOptions.length > 0
+              ? "✅ Confirm Donation with Selected NGO"
+              : "🍱 Create Donation"
+          )}
         </button>
+
         {onCancel && (
           <button
             type="button"
@@ -236,6 +391,26 @@ const DonationForm = ({ onSuccess, onCancel, toast }) => {
           </button>
         )}
       </div>
+
+      {/* Step indicator when NGO selection is needed */}
+      {orgOptions.length > 0 && (
+        <div className="flex items-center justify-center gap-2 pt-1">
+          <div className="flex items-center gap-2 text-[12px] text-[#9CA3AF]">
+            <span className="w-5 h-5 rounded-full bg-[#2D6A4F] text-white text-[10px] flex items-center justify-center font-bold">✓</span>
+            <span className="text-[#2D6A4F] font-medium">Form filled</span>
+          </div>
+          <div className="w-8 h-px bg-[#E5E7EB]" />
+          <div className="flex items-center gap-2 text-[12px]">
+            <span className="w-5 h-5 rounded-full bg-[#E76F1A] text-white text-[10px] flex items-center justify-center font-bold">2</span>
+            <span className="text-[#E76F1A] font-medium">Select NGO</span>
+          </div>
+          <div className="w-8 h-px bg-[#E5E7EB]" />
+          <div className="flex items-center gap-2 text-[12px] text-[#9CA3AF]">
+            <span className="w-5 h-5 rounded-full bg-[#E5E7EB] text-[10px] flex items-center justify-center font-bold">3</span>
+            <span>Confirm</span>
+          </div>
+        </div>
+      )}
     </form>
   );
 };

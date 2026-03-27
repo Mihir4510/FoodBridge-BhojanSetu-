@@ -17,8 +17,8 @@ const CreateDonation = () => {
   return (
     <DonorLayout title="Create Donation" subtitle="List your surplus food for nearby NGOs.">
       <ToastContainer toasts={toasts} />
-
-      <div className="max-w-2xl">
+      <div className="flex justify-center">
+      <div className="max-w-5xl">
         {/* Info banner */}
         <div className="bg-[#D8F3DC] border border-[#B7E4C7] rounded-2xl px-5 py-4 flex items-start gap-3 mb-6">
           <span className="text-xl mt-0.5">🌿</span>
@@ -35,6 +35,7 @@ const CreateDonation = () => {
         <div className="bg-white rounded-2xl border border-[#E5E7EB] p-6 shadow-sm">
           <DonationForm toast={toast} onSuccess={handleSuccess} />
         </div>
+      </div>
       </div>
     </DonorLayout>
   );

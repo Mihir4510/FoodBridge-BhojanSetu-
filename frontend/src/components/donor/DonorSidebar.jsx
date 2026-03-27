@@ -1,10 +1,8 @@
 // src/components/donor/DonorSidebar.jsx
-// No AuthContext — user is passed as prop from DonorLayout
 
 import { NavLink, useNavigate } from "react-router-dom";
-import axios from "axios";
+import { useAuth } from "../../context/AuthContext";
 
-// ── Nav items ─────────────────────────────────────────────
 const navItems = [
   { to: "/donor/dashboard",       icon: "🏠", label: "Dashboard"       },
   { to: "/donor/create-donation", icon: "➕", label: "Create Donation" },
@@ -16,8 +14,11 @@ const navItems = [
 // ── Helpers ───────────────────────────────────────────────
 const getDisplayName = (user) => {
   if (!user) return "Guest";
-  if (user.role === "restaurant") return user.restaurantName || user.name || "Restaurant";
-  return user.name || "Donor";
+  // Restaurant → show restaurant name
+  // Individual → show full name
+  return user.role === "restaurant"
+    ? (user.restaurantName || user.name || "Restaurant")
+    : (user.name || "Donor");
 };
 
 const getRoleConfig = (role) => {
@@ -32,19 +33,14 @@ const getInitials = (name = "") =>
   name.trim().split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "?";
 
 // ── DonorSidebar ──────────────────────────────────────────
-const DonorSidebar = ({ user }) => {
-  const navigate   = useNavigate();
-  const roleConfig = getRoleConfig(user?.role);
-  const displayName = getDisplayName(user);
+const DonorSidebar = () => {
+  const { user, logout } = useAuth(); // ← reads from AuthContext
+  const navigate         = useNavigate();
+  const displayName      = getDisplayName(user);
+  const roleConfig       = getRoleConfig(user?.role);
 
   const handleLogout = async () => {
-    try {
-      await axios.post(
-        "http://localhost:3000/api/auth/logout",
-        {},
-        { withCredentials: true }
-      );
-    } catch (_) {}
+    await logout(); // clears user from context + calls /api/auth/logout
     navigate("/login");
   };
 
@@ -57,27 +53,24 @@ const DonorSidebar = ({ user }) => {
           🌿
         </div>
         <div>
-          <p className="font-playfair text-white font-bold text-[15px] leading-none">
-            BhojanSetu
-          </p>
+          <p className="font-playfair text-white font-bold text-[15px] leading-none">BhojanSetu</p>
+          {/* Shows "Restaurant Portal" or "Donor Portal" */}
           <p className="text-white/40 text-[10px] mt-0.5 uppercase tracking-wider">
             {roleConfig.portalLabel}
           </p>
         </div>
       </div>
 
-      {/* ── User info card ── */}
+      {/* ── User card ── */}
       <div className="mx-3 mt-4 mb-2 bg-white/6 border border-white/10 rounded-xl px-3 py-3 flex items-center gap-3">
-        {/* Avatar with initials */}
         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#2D6A4F] to-[#40916C] flex items-center justify-center text-white text-[13px] font-bold flex-shrink-0">
           {getInitials(displayName)}
         </div>
         <div className="min-w-0">
-          {/* Display name: restaurant name OR full name */}
+          {/* "Spice Garden Restaurant" or "Mihir Sharma" */}
           <p className="text-white text-[13px] font-semibold leading-tight truncate">
             {displayName}
           </p>
-          {/* Role label */}
           <p className="text-white/40 text-[10px] mt-0.5 capitalize flex items-center gap-1">
             <span>{roleConfig.icon}</span>
             {user?.role || "donor"}

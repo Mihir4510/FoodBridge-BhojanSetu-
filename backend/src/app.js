@@ -21,7 +21,10 @@ app.use(cors({
   origin: "http://localhost:5173", // frontend
   credentials: true                // allow cookies
 }));
-
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Credentials", "true");
+  next();
+});
 
 // Routes
 app.use("/api/auth", authrouter);

@@ -1,82 +1,70 @@
 // src/components/donor/DonorLayout.jsx
-// No AuthContext — user is passed as prop from each page
 
 import DonorSidebar from "./DonorSidebar";
+import { useAuth } from "../../context/AuthContext";
 
-// ── Get display name based on role ────────────────────────
 const getDisplayName = (user) => {
   if (!user) return "Guest";
-  if (user.role === "restaurant") return user.restaurantName || user.name || "Restaurant";
-  return user.name || "Donor";
+  return user.role === "restaurant"
+    ? (user.restaurantName || user.name || "Restaurant")
+    : (user.name || "Donor");
 };
 
-// ── Role icon ─────────────────────────────────────────────
-const getRoleIcon = (role) => {
-  if (role === "restaurant") return "🍽️";
-  return "🍴";
-};
+const getRoleIcon = (role) =>
+  role === "restaurant" ? "🍽️" : "🍴";
 
 // ── DonorLayout ───────────────────────────────────────────
-// Usage: <DonorLayout title="Dashboard" user={user}>...</DonorLayout>
-const DonorLayout = ({ children, title, subtitle, user }) => {
+const DonorLayout = ({ children, title, subtitle }) => {
+  const { user }    = useAuth(); // ← reads from AuthContext
   const displayName = getDisplayName(user);
   const roleIcon    = getRoleIcon(user?.role);
 
   return (
     <div className="min-h-screen bg-[#F4F6F8] font-dm">
 
-      {/* Sidebar — desktop only */}
+      {/* Sidebar — desktop */}
       <div className="hidden lg:block">
-        <DonorSidebar user={user} />
+        <DonorSidebar />
       </div>
 
-      {/* Main content */}
       <main className="lg:ml-[220px] min-h-screen flex flex-col">
 
         {/* ── Top bar ── */}
         <header className="bg-white border-b border-[#E5E7EB] px-6 lg:px-8 py-4 flex items-center justify-between sticky top-0 z-40">
 
-          {/* Mobile: logo */}
+          {/* Mobile logo */}
           <div className="flex items-center gap-2.5 lg:hidden">
-            <div className="w-7 h-7 bg-gradient-to-br from-[#2D6A4F] to-[#40916C] rounded-lg flex items-center justify-center text-sm">
-              🌿
-            </div>
+            <div className="w-7 h-7 bg-gradient-to-br from-[#2D6A4F] to-[#40916C] rounded-lg flex items-center justify-center text-sm">🌿</div>
             <span className="font-playfair text-[15px] font-bold text-[#2D6A4F]">BhojanSetu</span>
           </div>
 
-          {/* Desktop: page title */}
+          {/* Desktop page title */}
           <div className="hidden lg:block">
             <h1 className="text-[20px] font-bold text-[#111827] leading-none">{title}</h1>
             {subtitle && <p className="text-[13px] text-[#6B7280] mt-0.5">{subtitle}</p>}
           </div>
 
-          {/* Right: user info */}
+          {/* Right: logged-in user */}
           <div className="flex items-center gap-3">
-            {/* Avatar with initials */}
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#2D6A4F] to-[#40916C] flex items-center justify-center text-white text-[12px] font-bold flex-shrink-0">
               {displayName.trim().split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "?"}
             </div>
             <div className="hidden sm:block">
-              {/* Logged-in name */}
-              <p className="text-[13px] font-semibold text-[#111827] leading-none">
-                {displayName}
-              </p>
-              {/* Role with icon */}
+              {/* "Spice Garden" or "Mihir Sharma" */}
+              <p className="text-[13px] font-semibold text-[#111827] leading-none">{displayName}</p>
               <p className="text-[11px] text-[#9CA3AF] mt-0.5 capitalize flex items-center gap-1">
-                <span>{roleIcon}</span>
-                {user?.role || "donor"}
+                <span>{roleIcon}</span> {user?.role || "donor"}
               </p>
             </div>
           </div>
         </header>
 
-        {/* Mobile: page title */}
+        {/* Mobile page title */}
         <div className="lg:hidden px-6 pt-5">
           <h1 className="text-[20px] font-bold text-[#111827]">{title}</h1>
           {subtitle && <p className="text-[13px] text-[#6B7280] mt-0.5">{subtitle}</p>}
         </div>
 
-        {/* Page content */}
         <div className="flex-1 p-6 lg:p-8">{children}</div>
       </main>
 
