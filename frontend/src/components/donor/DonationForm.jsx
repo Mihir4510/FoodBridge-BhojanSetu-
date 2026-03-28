@@ -191,6 +191,7 @@ if (!res.data.success && res.data?.organizations?.length === 0) {
             <option value="kg">Kilograms (kg)</option>
             <option value="litres">Litres</option>
             <option value="boxes">Boxes</option>
+             <option value="boxes">Piece</option>
           </select>
         </FormField>
       </div>
