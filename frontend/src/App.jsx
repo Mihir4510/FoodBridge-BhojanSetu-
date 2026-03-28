@@ -7,6 +7,7 @@ import RegisterPage from "./pages/RegisterPage";
 
 import AdminRoutes from './routes/AdminRoutes';
 import DonorRoutes from './routes/DonorRoutes'
+import NgoRoutes from "./routes/NgoRoutes";
 
 
 
@@ -22,7 +23,7 @@ function App() {
          
         <Route path="/admin/*" element={<AdminRoutes />} />
         <Route path="/donor/*" element={<DonorRoutes />} />
-        {/* {DonorRoutes} */}
+        <Route path="/ngo/*" element={<NgoRoutes />} />
 
 
       </Routes>
