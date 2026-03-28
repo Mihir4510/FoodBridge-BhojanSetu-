@@ -134,14 +134,16 @@ async function getOrganizationRequests(req, res) {
   try {
     const donations = await Donation.find({
       organizationId: req.user._id,
-      status: "pending",
-    }).populate("donorId", "name email role");
+      
+    }).populate("donorId", "name email role location");
 
     const requests = donations.map((donation) => {
       const priority = calculatePriority(donation.createdAt);
 
       return {
         ...donation.toObject(),
+         donor: donation.donorId,
+         organization: donation.organizationId, 
         priority,
       };
     });
@@ -149,7 +151,7 @@ async function getOrganizationRequests(req, res) {
     res.status(200).json({
       success: true,
       count: requests.length,
-      requests,
+      donations: requests, 
     });
   } catch (error) {
     res.status(500).json({
@@ -166,7 +168,7 @@ async function acceptDonation(req, res) {
     const donation = await Donation.findOne({
       _id: req.params.id,
       organizationId: req.user._id,
-      status: "pending",
+      
     });
 
     if (!donation) {
@@ -175,7 +177,7 @@ async function acceptDonation(req, res) {
         message: "Donation not found or already accepted",
       });
     }
-    //Check if donation expired
+
     const priority = calculatePriority(donation.createdAt);
 
     if (priority === "expired") {
@@ -190,11 +192,14 @@ async function acceptDonation(req, res) {
     donation.acceptedBy = req.user._id;
 
     await donation.save();
-    io.to(donation.donorId.toString()).emit("donationAccepted", {
-      message: "Your donation has been accepted",
-    });
+
+    const io = getIO();
+
+    io.to(donation.donorId.toString()).emit("donationAccepted", donation);
+    io.to(donation.organizationId.toString()).emit("donationUpdated", donation);
 
     res.status(200).json({ success: true, donation });
+
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -207,7 +212,7 @@ async function collectDonation(req, res) {
     const donation = await Donation.findOne({
       _id: req.params.id,
       organizationId: req.user._id,
-      status: "accepted",
+      
     });
 
     if (!donation) {
@@ -221,9 +226,12 @@ async function collectDonation(req, res) {
     donation.collectedAt = new Date();
 
     await donation.save();
-    io.to(donation.donorId.toString()).emit("donationCollected", {
-      message: "Your donation has been collected",
-    });
+    const io = getIO();
+    // Notify donor
+    io.to(donation.donorId.toString()).emit("donationCollected", donation);
+
+    // Notify NGO dashboard (IMPORTANT)
+    io.to(donation.organizationId.toString()).emit("donationUpdated", donation);
 
     res.status(200).json({ success: true, donation });
   } catch (error) {
