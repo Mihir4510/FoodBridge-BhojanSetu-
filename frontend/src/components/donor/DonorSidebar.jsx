@@ -8,7 +8,7 @@ const navItems = [
   { to: "/donor/create-donation", icon: "➕", label: "Create Donation" },
   { to: "/donor/my-donations",    icon: "🍱", label: "My Donations"    },
   { to: "/donor/notifications",   icon: "🔔", label: "Notifications"   },
-  { to: "/donor/profile",         icon: "👤", label: "Profile"         },
+  
 ];
 
 // ── Helpers ───────────────────────────────────────────────

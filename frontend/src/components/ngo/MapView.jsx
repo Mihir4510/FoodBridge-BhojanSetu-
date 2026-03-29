@@ -1,12 +1,12 @@
 // src/components/ngo/MapView.jsx
 // Google Maps showing NGO + donor locations
-// Replace YOUR_GOOGLE_MAPS_API_KEY with your actual key
-// Or use import.meta.env.VITE_GOOGLE_MAPS_KEY
+// Add VITE_GOOGLE_MAPS_KEY to your .env file
 
 import { useEffect, useRef } from "react";
 import { toLatLng } from "./NgoUI";
 
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_KEY || "YOUR_GOOGLE_MAPS_API_KEY";
+console.log("MAP KEY:", GOOGLE_MAPS_KEY);
 
 // ── Load Google Maps script once ──────────────────────────
 let scriptLoaded = false;
@@ -20,7 +20,7 @@ const loadGoogleMaps = (callback) => {
   }
   scriptLoaded = true;
   const script = document.createElement("script");
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}`;
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=places`;
   script.async = true;
   script.defer = true;
   script.onload = callback;
@@ -45,12 +45,12 @@ const MapView = ({ ngoLocation, donations = [], onMarkerClick }) => {
         zoom:      13,
         mapTypeId: "roadmap",
         styles: [
-          { featureType: "poi", stylers: [{ visibility: "off" }] },
+          { featureType: "poi",     stylers: [{ visibility: "off" }] },
           { featureType: "transit", stylers: [{ visibility: "off" }] },
         ],
       });
 
-      // ── NGO marker (orange) ───────────────────────────
+      // ── NGO marker (orange) ────────────────────────────
       new window.google.maps.Marker({
         position: ngoLocation,
         map:      mapInstance.current,
@@ -65,14 +65,15 @@ const MapView = ({ ngoLocation, donations = [], onMarkerClick }) => {
         },
       });
 
-      // ── Donor markers ─────────────────────────────────
+      // ── Clear old donor markers ────────────────────────
       markers.current.forEach((m) => m.setMap(null));
       markers.current = [];
 
+      // ── Donor markers ──────────────────────────────────
       donations.forEach((d) => {
-        const coords = toLatLng(
-          d.donor?.location?.coordinates || d.location?.coordinates
-        );
+        // ✅ Normalize: donor or donorId
+        const donor  = d.donor || d.donorId;
+        const coords = toLatLng(donor?.location?.coordinates);
         if (!coords) return;
 
         const priorityColors = {
@@ -98,10 +99,15 @@ const MapView = ({ ngoLocation, donations = [], onMarkerClick }) => {
         // Info window on hover
         const infoWindow = new window.google.maps.InfoWindow({
           content: `
-            <div style="font-family: sans-serif; padding: 4px; min-width: 160px;">
-              <p style="font-weight:700; font-size:13px; margin:0 0 4px;">${d.title}</p>
-              <p style="font-size:12px; color:#6B7280; margin:0 0 2px;">📦 ${d.quantity} ${d.unit || "plates"}</p>
-              <p style="font-size:12px; color:#6B7280; margin:0; text-transform:capitalize;">
+            <div style="font-family:sans-serif;padding:4px;min-width:160px;">
+              <p style="font-weight:700;font-size:13px;margin:0 0 4px;">${d.title}</p>
+              <p style="font-size:12px;color:#6B7280;margin:0 0 2px;">
+                👤 ${donor?.name || "Donor"}
+              </p>
+              <p style="font-size:12px;color:#6B7280;margin:0 0 2px;">
+                📦 ${d.quantity} ${d.unit || "plates"}
+              </p>
+              <p style="font-size:12px;color:#6B7280;margin:0;text-transform:capitalize;">
                 Status: <strong>${d.status}</strong>
               </p>
             </div>
@@ -125,13 +131,16 @@ const MapView = ({ ngoLocation, donations = [], onMarkerClick }) => {
     });
   }, [ngoLocation, donations]);
 
+  // ── No location fallback ───────────────────────────────
   if (!ngoLocation) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-[#F9FAFB] rounded-2xl border border-[#E5E7EB]">
-        <div className="text-center py-12">
-          <p className="text-[32px] mb-3">🗺️</p>
-          <p className="text-[14px] font-semibold text-[#374151]">Location not available</p>
-          <p className="text-[12px] text-[#9CA3AF] mt-1">Update your NGO profile with a location to enable map view.</p>
+        <div className="text-center py-12 px-6">
+          <p className="text-[40px] mb-3">🗺️</p>
+          <p className="text-[14px] font-semibold text-[#374151] mb-1">Location not set</p>
+          <p className="text-[12px] text-[#9CA3AF]">
+            Update your NGO profile with a city/location to enable the map view.
+          </p>
         </div>
       </div>
     );
@@ -160,7 +169,7 @@ const MapView = ({ ngoLocation, donations = [], onMarkerClick }) => {
         </div>
       </div>
 
-      {/* Donation count */}
+      {/* Donation count badge */}
       <div className="absolute top-4 right-4 bg-white rounded-xl px-3 py-2 shadow-lg border border-[#E5E7EB]">
         <p className="text-[12px] font-semibold text-[#374151]">
           🍱 {donations.length} donation{donations.length !== 1 ? "s" : ""} on map

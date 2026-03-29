@@ -135,18 +135,26 @@ async function getOrganizationRequests(req, res) {
     const donations = await Donation.find({
       organizationId: req.user._id,
       
-    }).populate("donorId", "name email role location");
+    }).populate("donorId", "name email role location")
+    .populate("organizationId", "name email"); 
 
-    const requests = donations.map((donation) => {
-      const priority = calculatePriority(donation.createdAt);
+const requests = donations.map((donation) => {
+  const priority = calculatePriority(donation.createdAt);
+  const obj = donation.toObject();
 
-      return {
-        ...donation.toObject(),
-         donor: donation.donorId,
-         organization: donation.organizationId, 
-        priority,
-      };
-    });
+  return {
+    ...obj,
+
+    donor: obj.donorId,             
+    organization: obj.organizationId, 
+
+    // keep IDs if needed (optional)
+    donorId: obj.donorId?._id,
+    organizationId: obj.organizationId?._id,
+
+    priority,
+  };
+});
 
     res.status(200).json({
       success: true,

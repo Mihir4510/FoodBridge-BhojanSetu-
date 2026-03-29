@@ -6,87 +6,77 @@ const sendEmail = require("../utils/email");
 /*
 --Post /api/auth/register
 */
-
 async function userregistercontroller(req, res) {
-  const { email, name, password, role , latitude, longitude } = req.body;
+  try {
+    const { email, name, password, role, location } = req.body;
 
-  // for admin only
-  if (role === "admin") {
-    return res.status(403).json({
-      message: "You cannot register as admin",
+    if (role === "admin") {
+      return res.status(403).json({
+        message: "You cannot register as admin",
+      });
+    }
+
+    // ✅ Check location (MANDATORY)
+    if (
+      !location ||
+      !location.coordinates ||
+      location.coordinates.length !== 2 ||
+      location.coordinates[0] == null ||
+      location.coordinates[1] == null
+    ) {
+      return res.status(400).json({
+        message: "Location is required. Please allow location access.",
+      });
+    }
+
+    const isexist = await usermodel.findOne({ email });
+
+    if (isexist) {
+      return res.status(422).json({
+        message: "User already exists with this email",
+      });
+    }
+
+    // ✅ Create user with correct location
+    const user = await usermodel.create({
+      name,
+      email,
+      password,
+      role,
+      location: {
+        type: "Point",
+        coordinates: location.coordinates, // ✅ FIXED
+      },
+    });
+
+    await sendEmail({
+      to: user.email,
+      subject: "Welcome to BhojanSetu!",
+      text: `Hello ${user.name}, welcome!`,
+    });
+
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "3d",
+    });
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",
+      path: "/",
+    });
+
+    res.status(201).json({
+      user,
+      token,
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
     });
   }
-
-  // Check if user already exists
-  const isexist = await usermodel.findOne({ email });
-
-  if (isexist) {
-    return res.status(422).json({
-      message: "User already exists with this email",
-      status: "failed",
-    });
-  }
-
-  const userData = {
-  name: req.body.name,
-  email: req.body.email,
-  password: req.body.password,
-  role: req.body.role,
-};
-
-if (
-  req.body.location &&
-  req.body.location.coordinates &&
-  req.body.location.coordinates[0] !== null &&
-  req.body.location.coordinates[1] !== null
-) {
-  userData.location = {
-    type: "Point",
-    coordinates: req.body.location.coordinates,
-  };
 }
-
-
-
-  // Only add role if it is valid and not empty
-  if (role && role.trim() !== "") {
-    userData.role = role;
-  }
-
-  // Create user
-  const user = await usermodel.create(userData);
-
-  // ---- SEND WELCOME EMAIL ----
-  await sendEmail({
-    to: user.email,
-    subject: "Welcome to BhojanSetu!",
-    text: `Hello ${user.name},\n\nThank you for registering on BhojanSetu. We’re excited to have you on board!`,
-    html: `<h2>Hello ${user.name},</h2><p>Thank you for registering on <strong>BhojanSetu</strong>. We’re excited to have you on board!</p>`
-  });
-
-  // Generate token
-  const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-    expiresIn: "3d",
-  });
-
-  res.cookie("token", token, {
-    httpOnly: true,
-    secure: false,
-  sameSite: "lax",
-  path: "/",
-  });
-
-  res.status(201).json({
-    user: {
-      _id: user._id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-    },
-    token,
-  });
-}
-
 //login contoller
 /*
 --POST /api/auth/login
@@ -147,6 +137,7 @@ const getMe = async (req, res) => {
         name:           user.name,
         email:          user.email,
         role:           user.role,
+        location:       user.location,
         restaurantName: user.restaurantName || null,
         phone:          user.phone          || null,
         isApproved:     user.isApproved     || false,

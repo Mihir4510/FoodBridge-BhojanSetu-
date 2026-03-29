@@ -10,7 +10,7 @@ const navItems = [
   { to: "/ngo/accepted",       icon: "✅", label: "Accepted"       },
   { to: "/ngo/map",            icon: "🗺️", label: "Map View"       },
   { to: "/ngo/notifications",  icon: "🔔", label: "Notifications"  },
-  { to: "/ngo/profile",        icon: "👤", label: "Profile"        },
+  
 ];
 
 const getInitials = (name = "") =>

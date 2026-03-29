@@ -12,9 +12,6 @@ import { StatCard, Spinner, EmptyState, toLatLng } from "../../components/ngo/Ng
 import useToast from "../../hooks/useToast";
 import ToastContainer from "../../components/donor/ToastContainer";
 
-
-
-// ── Sort options ───────────────────────────────────────────
 const SORT_OPTIONS = [
   { key: "newest",   label: "🕐 Newest First"  },
   { key: "priority", label: "🔴 Priority First" },
@@ -29,42 +26,37 @@ const FILTER_OPTIONS = [
   { key: "collected", label: "Collected" },
 ];
 
-// ── NgoDashboard ───────────────────────────────────────────
+const priorityOrder = { high: 0, medium: 1, low: 2 };
+
 const NgoDashboard = () => {
-  const { user }              = useAuth();
+  console.log("🔥 NGO DASHBOARD LOADED");
+  const { user }          = useAuth();
   console.log("USER:", user);
-  const { toasts, toast }     = useToast();
+  const { toasts, toast } = useToast();
 
-  const [donations, setDonations]   = useState([]);
-  console.log("DONATIONS:", donations);
-  const [loading,   setLoading]     = useState(true);
-  const [error,     setError]       = useState("");
-  const [view,      setView]        = useState("cards"); // "cards" | "map"
-  const [sortBy,    setSortBy]      = useState("newest");
-  const [filterBy,  setFilterBy]    = useState("all");
-  const [search,    setSearch]      = useState("");
-
-  // Modal
-  const [selectedDonation, setSelectedDonation] = useState(null);
-
-  // Action states
+  const [donations,  setDonations]  = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [error,      setError]      = useState("");
+  const [view,       setView]       = useState("cards");
+  const [sortBy,     setSortBy]     = useState("newest");
+  const [filterBy,   setFilterBy]   = useState("all");
+  const [search,     setSearch]     = useState("");
+  const [selected,   setSelected]   = useState(null);
   const [accepting,  setAccepting]  = useState(null);
   const [collecting, setCollecting] = useState(null);
 
-  // Socket ref
   const socketRef = useRef(null);
 
-  // NGO location from user profile
+  // NGO's own location
   const ngoLocation = user?.location?.coordinates
     ? toLatLng(user.location.coordinates)
     : null;
-
+console.log("NGO LOCATION:", ngoLocation);
   // ── Load donations ─────────────────────────────────────
   const load = useCallback(async () => {
     try {
-      // GET /api/request
       const res = await getAllRequests();
-      setDonations(Array.isArray(res.data?.donations) ? res.data.donations : []);
+      setDonations(res.data?.donations || res.data || []);
     } catch (e) {
       setError(e.response?.data?.message || "Failed to load donations.");
     } finally {
@@ -72,77 +64,58 @@ const NgoDashboard = () => {
     }
   }, []);
 
-  useEffect(() => {
-  if (user) {
-    load();
-  }
-}, [user]);
+  useEffect(() => { load(); }, [load]);
 
-  // ── Socket.io real-time updates ────────────────────────
+  // ── Socket.io real-time ────────────────────────────────
   useEffect(() => {
     socketRef.current = io("http://localhost:3000", { withCredentials: true });
-
-    // Join NGO's room
     if (user?._id || user?.id) {
       socketRef.current.emit("joinRoom", user._id || user.id);
     }
-
-    // Listen for new donation assigned to this NGO
     socketRef.current.on("newDonation", (donation) => {
       setDonations((prev) => {
-        // Avoid duplicates
-        const exists = prev.find((d) => d._id === donation._id);
-        if (exists) return prev;
+        if (prev.find((d) => d._id === donation._id)) return prev;
         return [donation, ...prev];
       });
       toast.info(`🍱 New donation: "${donation.title}" assigned to you!`);
     });
-
-    // Listen for status updates
     socketRef.current.on("donationUpdated", (updated) => {
       setDonations((prev) =>
-        prev.map((d) => (d._id === updated._id ? { ...d, ...updated } : d))
+        prev.map((d) => d._id === updated._id ? { ...d, ...updated } : d)
       );
     });
-
-    return () => { socketRef.current?.disconnect(); };
+    return () => socketRef.current?.disconnect();
   }, [user]);
 
-  // ── Accept donation ────────────────────────────────────
+  // ── Accept ─────────────────────────────────────────────
   const handleAccept = async (id) => {
     setAccepting(id);
     try {
-      // PUT /api/accept/:id
       await acceptDonation(id);
       setDonations((prev) =>
         prev.map((d) => d._id === id ? { ...d, status: "accepted" } : d)
       );
-      toast.success("Donation accepted! Donor has been notified.");
-      if (selectedDonation?._id === id) {
-        setSelectedDonation((prev) => ({ ...prev, status: "accepted" }));
-      }
+      toast.success("Donation accepted! Donor has been notified. ✅");
+      if (selected?._id === id) setSelected((p) => ({ ...p, status: "accepted" }));
     } catch (e) {
-      toast.error(e.response?.data?.message || "Failed to accept donation.");
+      toast.error(e.response?.data?.message || "Failed to accept.");
     } finally {
       setAccepting(null);
     }
   };
 
-  // ── Collect donation ───────────────────────────────────
+  // ── Collect ────────────────────────────────────────────
   const handleCollect = async (id) => {
     setCollecting(id);
     try {
-      // PUT /api/collect/:id
       await collectDonation(id);
       setDonations((prev) =>
         prev.map((d) => d._id === id ? { ...d, status: "collected" } : d)
       );
       toast.success("Marked as collected! Great work. 🎉");
-      if (selectedDonation?._id === id) {
-        setSelectedDonation((prev) => ({ ...prev, status: "collected" }));
-      }
+      if (selected?._id === id) setSelected((p) => ({ ...p, status: "collected" }));
     } catch (e) {
-      toast.error(e.response?.data?.message || "Failed to mark as collected.");
+      toast.error(e.response?.data?.message || "Failed to mark collected.");
     } finally {
       setCollecting(null);
     }
@@ -151,40 +124,72 @@ const NgoDashboard = () => {
   // ── Stats ──────────────────────────────────────────────
   const total     = donations.length;
   const pending   = donations.filter((d) => d.status === "pending").length;
-  const accepted  = donations.filter((d) => d.status === "accepted").length;
+  const accepted = donations.filter(
+  (d) => d.status === "accepted" || d.status === "collected"
+).length;
   const collected = donations.filter((d) => d.status === "collected").length;
 
-  // ── Filter ─────────────────────────────────────────────
-  const priorityOrder = { high: 0, medium: 1, low: 2 };
-
+  // ── Filter + search + sort ─────────────────────────────
   const processed = donations
     .filter((d) => {
-      if (filterBy !== "all" && d.status !== filterBy) return false;
+      if (filterBy === "accepted") {
+  return d.status === "accepted" || d.status === "collected";
+}
+
+if (filterBy !== "all" && d.status !== filterBy) {
+  return false;
+}
       if (search.trim()) {
         const q = search.toLowerCase();
         return (
           d.title?.toLowerCase().includes(q) ||
           d.pickupAddress?.toLowerCase().includes(q) ||
-          d.donor?.name?.toLowerCase().includes(q)
+          // ✅ donor || donorId
+          (d.donor || d.donorId)?.name?.toLowerCase().includes(q)
         );
       }
       return true;
     })
     .sort((a, b) => {
-      if (sortBy === "priority") return (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2);
-      if (sortBy === "expiry")   return new Date(a.expiryTime) - new Date(b.expiryTime);
+      if (sortBy === "priority")
+        return (priorityOrder[a.priority] ?? 2) - (priorityOrder[b.priority] ?? 2);
+
+      if (sortBy === "expiry")
+        return new Date(a.expiryTime) - new Date(b.expiryTime);
+
       if (sortBy === "distance" && ngoLocation) {
-        const da = a.donor?.location?.coordinates ? Math.hypot(a.donor.location.coordinates[1] - ngoLocation.lat, a.donor.location.coordinates[0] - ngoLocation.lng) : 999;
-        const db = b.donor?.location?.coordinates ? Math.hypot(b.donor.location.coordinates[1] - ngoLocation.lat, b.donor.location.coordinates[0] - ngoLocation.lng) : 999;
+        // ✅ donor || donorId for both a and b
+        const donorA = a.donor || a.donorId;
+        const donorB = b.donor || b.donorId;
+
+        const da = donorA?.location?.coordinates
+          ? Math.hypot(
+              donorA.location.coordinates[1] - ngoLocation.lat,
+              donorA.location.coordinates[0] - ngoLocation.lng
+            )
+          : 999;
+
+        const db = donorB?.location?.coordinates
+          ? Math.hypot(
+              donorB.location.coordinates[1] - ngoLocation.lat,
+              donorB.location.coordinates[0] - ngoLocation.lng
+            )
+          : 999;
+
         return da - db;
       }
-      return new Date(b.createdAt) - new Date(a.createdAt); // newest
+
+      // default: newest first
+      return new Date(b.createdAt) - new Date(a.createdAt);
     });
 
   const counts = FILTER_OPTIONS.reduce((acc, f) => {
-    acc[f.key] = f.key === "all" ? donations.length : donations.filter((d) => d.status === f.key).length;
+    acc[f.key] = f.key === "all"
+      ? donations.length
+      : donations.filter((d) => d.status === f.key).length;
     return acc;
   }, {});
+
 
   return (
     <NgoLayout
@@ -211,9 +216,9 @@ const NgoDashboard = () => {
 
           {/* ── Toolbar ── */}
           <div className="flex flex-col gap-4 mb-6">
-            {/* Row 1: Search + View toggle */}
-            <div className="flex gap-3 items-center">
-              <div className="relative flex-1 max-w-sm">
+            {/* Search + View toggle */}
+            <div className="flex gap-3 items-center flex-wrap">
+              <div className="relative flex-1 min-w-[200px] max-w-sm">
                 <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] text-[14px]">🔍</span>
                 <input
                   value={search}
@@ -222,7 +227,7 @@ const NgoDashboard = () => {
                   className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-[#E5E7EB] text-[13px] bg-white outline-none focus:border-[#E76F1A] focus:ring-2 focus:ring-[#E76F1A]/10"
                 />
               </div>
-              {/* View toggle */}
+              {/* Cards / Map toggle */}
               <div className="flex bg-white border border-[#E5E7EB] rounded-xl overflow-hidden">
                 <button
                   onClick={() => setView("cards")}
@@ -239,9 +244,8 @@ const NgoDashboard = () => {
               </div>
             </div>
 
-            {/* Row 2: Filters + Sort */}
+            {/* Filter tabs + Sort */}
             <div className="flex flex-wrap gap-2 items-center justify-between">
-              {/* Status filters */}
               <div className="flex flex-wrap gap-2">
                 {FILTER_OPTIONS.map((f) => (
                   <button
@@ -260,7 +264,6 @@ const NgoDashboard = () => {
                   </button>
                 ))}
               </div>
-              {/* Sort */}
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
@@ -275,32 +278,30 @@ const NgoDashboard = () => {
 
           {/* ── Cards View ── */}
           {view === "cards" && (
-            <>
-              {processed.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-[#E5E7EB] p-8">
-                  <EmptyState
-                    icon="🍱"
-                    title="No donations found"
-                    subtitle="Donations assigned to your NGO will appear here in real time."
+            processed.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-[#E5E7EB] p-8">
+                <EmptyState
+                  icon="🍱"
+                  title="No donations found"
+                  subtitle="Donations assigned to your NGO will appear here in real time."
+                />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+                {processed.map((d) => (
+                  <DonationCard
+                    key={d._id}
+                    donation={d}
+                    ngoLocation={ngoLocation}
+                    onView={(donation) => setSelected(donation)}
+                    onAccept={handleAccept}
+                    onCollect={handleCollect}
+                    accepting={accepting}
+                    collecting={collecting}
                   />
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-                  {processed.map((d) => (
-                    <DonationCard
-                      key={d._id}
-                      donation={d}
-                      ngoLocation={ngoLocation}
-                      onView={(donation) => setSelectedDonation(donation)}
-                      onAccept={handleAccept}
-                      onCollect={handleCollect}
-                      accepting={accepting}
-                      collecting={collecting}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
+                ))}
+              </div>
+            )
           )}
 
           {/* ── Map View ── */}
@@ -309,22 +310,22 @@ const NgoDashboard = () => {
               <MapView
                 ngoLocation={ngoLocation}
                 donations={processed}
-                onMarkerClick={(d) => setSelectedDonation(d)}
+                onMarkerClick={(d) => setSelected(d)}
               />
             </div>
           )}
         </>
       )}
 
-      {/* ── Detail Modal ── */}
-      {selectedDonation && (
+      {/* Detail Modal */}
+      {selected && (
         <DonationModal
-          donation={selectedDonation}
-          onClose={() => setSelectedDonation(null)}
+          donation={selected}
+          onClose={() => setSelected(null)}
           onAccept={handleAccept}
           onCollect={handleCollect}
-          accepting={accepting === selectedDonation._id}
-          collecting={collecting === selectedDonation._id}
+          accepting={accepting === selected._id}
+          collecting={collecting === selected._id}
         />
       )}
     </NgoLayout>
