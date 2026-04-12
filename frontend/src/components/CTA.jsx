@@ -254,7 +254,7 @@ const CTA = () => {
               🛡️
             </div>
             <div>
-              <p className="text-white text-[14px] font-semibold">Admin-verified NGOs only</p>
+              <p className="text-white text-[14px] font-semibold">Admin-verified NGOs and Resturant</p>
               <p className="text-white/45 text-[12px] mt-0.5">Every organization is manually approved before going live.</p>
             </div>
           </div>

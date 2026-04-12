@@ -10,7 +10,8 @@ const navItems = [
   { to: "/ngo/accepted",       icon: "✅", label: "Accepted"       },
   { to: "/ngo/map",            icon: "🗺️", label: "Map View"       },
   { to: "/ngo/notifications",  icon: "🔔", label: "Notifications"  },
-  { to: "/ngo/drivers",        icon: "🚗", label: "Drivers"}
+  { to: "/ngo/drivers",        icon: "🚗", label: "Drivers"},
+  { to: "/ngo/applications", icon: "📋", label: "Applications" }
   
 ];
 

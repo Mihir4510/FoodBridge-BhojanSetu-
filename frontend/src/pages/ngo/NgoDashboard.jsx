@@ -20,10 +20,16 @@ const SORT_OPTIONS = [
 ];
 
 const FILTER_OPTIONS = [
+  // { key: "all",       label: "All"       },
+  // { key: "pending",   label: "Pending"   },
+  // { key: "accepted",  label: "Accepted"  },
+  // { key: "collected", label: "Collected" },
   { key: "all",       label: "All"       },
-  { key: "pending",   label: "Pending"   },
-  { key: "accepted",  label: "Accepted"  },
-  { key: "collected", label: "Collected" },
+  { key: "pending",   label: "Pending"   },  
+  { key: "accepted",  label: "Accepted"  }, 
+  { key: "assigned",  label: "Assigned"  },  
+  { key: "picked_up", label: "Picked Up" },  
+  { key: "completed", label: "Completed" },
 ];
 
 const priorityOrder = { high: 0, medium: 1, low: 2 };
