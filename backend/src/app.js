@@ -8,6 +8,7 @@ const authrouter=require("./routes/auth.routes")
 const donationRouter = require("./routes/donation.routes");
 const adminRoutes = require("./routes/admin.routes");
 const driverRoutes = require("./routes/driver.routes");
+const driverAppRoutes = require("./routes/driverApplicationRoutes.js");
 
 
 
@@ -35,6 +36,8 @@ app.use("/api/donation", donationRouter);
 app.use("/api/admin", adminRoutes);
 
 app.use("/api/driver", driverRoutes);
+
+app.use("/api/driver-apply", driverAppRoutes);
 
 
 //global errorhandler

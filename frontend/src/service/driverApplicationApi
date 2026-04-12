@@ -1,0 +1,24 @@
+// src/api/driverApplicationApi.js
+// All API calls for the driver self-onboarding flow
+// No auth required for public endpoints (apply, nearby-ngos, status)
+
+import axios from "axios";
+
+const API = axios.create({
+  baseURL:         "http://localhost:3000/api/driver-apply",
+  withCredentials: true,
+});
+
+// ── Public ────────────────────────────────────────────────
+export const getNearbyNgos       = (lat, lng, radius) =>
+  API.get("/nearby-ngos", { params: { lat, lng, radius } });
+
+export const submitApplication   = (data)  => API.post("/apply", data);
+export const getApplicationStatus = (email) => API.get(`/status/${email}`);
+
+// ── NGO (requires NGO login) ──────────────────────────────
+export const getApplications     = ()           => API.get("/applications");
+export const approveApplication  = (id)         => API.put(`/approve/${id}`);
+export const rejectApplication   = (id, reason) => API.put(`/reject/${id}`, { reason });
+
+export default API;

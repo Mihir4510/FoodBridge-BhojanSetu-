@@ -1,13 +1,24 @@
+// src/routes/DriverRoutes.jsx
 
-import { Route }        from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
+
 import DriverLogin      from "../pages/driver/DriverLogin";
 import DriverDashboard  from "../pages/driver/DriverDashboard";
-import NgoDrivers       from "../pages/ngo/NgoDrivers";
+import DriverApply      from "../pages/driver/DriverApply";
+import DriverStatus     from "../pages/driver/DriverStatus";
 
-const DriverRoutes = [
-  <Route key="driver-login" path="/driver/login"     element={<DriverLogin />}     />,
-  <Route key="driver-dash"  path="/driver/dashboard" element={<DriverDashboard />} />,
-  <Route key="ngo-drivers"  path="/ngo/drivers"      element={<NgoDrivers />}      />,
-];
+const DriverRoutes = () => {
+  return (
+    <Routes>
+      {/* ── Public driver pages ───────────────────────── */}
+      <Route path="login" element={<DriverLogin />} />
+      <Route path="apply" element={<DriverApply />} />
+      <Route path="status" element={<DriverStatus />} />
+
+      {/* ── Protected driver page ─────────────────────── */}
+      <Route path="dashboard" element={<DriverDashboard />} />
+    </Routes>
+  );
+};
 
 export default DriverRoutes;
