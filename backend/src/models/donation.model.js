@@ -1,87 +1,104 @@
-const mongoose = require("mongoose");
+// backend/models/Donation.js
+// UPDATED — added driverId field and new statuses
+// STATUS FLOW: pending → accepted → assigned → picked_up → completed
 
-const donationSchema = mongoose.Schema(
+import mongoose from "mongoose";
+
+const donationSchema = new mongoose.Schema(
   {
-    donorId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
-    },
-
-    organizationId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: null, // IMPORTANT (not required at start)
-    },
-
-    
     title: {
       type: String,
-      required: true,
+      required: [true, "Food title is required"],
+      trim: true,
     },
-
     foodType: {
       type: String,
       enum: ["Food", "Grocery"],
-      required: true,
+      default: "Food",
     },
-
     quantity: {
-      type: Number,   
+      type: Number,
       required: true,
     },
-
     unit: {
       type: String,
+      enum: ["plates", "kg", "litres", "boxes"],
       default: "plates",
     },
-
     pickupAddress: {
       type: String,
       required: true,
     },
-
-    expiryTime: {
-      type: Date,
-      required: true,
-    },
-
     contactNumber: {
       type: String,
       required: true,
     },
-
-    notes: {
-      type: String,
+    notes: String,
+    expiryTime: {
+      type: Date,
+      required: true,
     },
-
-    // OLD fields (keep if needed)
-    image: {
-      url: String,
-      fileId: String,
-    },
-
-    status: {
-      type: String,
-      enum: ["pending", "accepted", "collected", "expired"],
-      default: "pending",
-    },
-
     priority: {
       type: String,
-      enum: ["low", "medium", "high"],
+      enum: ["high", "medium", "low"],
       default: "low",
     },
 
-    acceptedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+    // ── Status lifecycle ──────────────────────────────
+    // pending   → just created
+    // accepted  → NGO accepted it
+    // assigned  → driver assigned by system
+    // picked_up → driver picked up the food
+    // completed → food delivered to NGO
+    // expired   → past expiry time, not collected
+    status: {
+      type: String,
+      enum: ["pending", "accepted", "assigned", "picked_up", "completed", "expired"],
+      default: "pending",
     },
 
-    acceptedAt: Date,
-    collectedAt: Date,
+    // Who donated
+    donor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+
+    // Which NGO accepted
+    organization: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    // ── NEW: Which driver is assigned ────────────────
+    // null = not yet assigned
+    // Set atomically to prevent double-assignment
+    driverId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Driver",
+      default: null,
+    },
+
+    // When driver was assigned
+    assignedAt: {
+      type: Date,
+      default: null,
+    },
+
+    // When food was picked up by driver
+    pickedUpAt: {
+      type: Date,
+      default: null,
+    },
+
+    // When food was delivered to NGO
+    completedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model("Donation", donationSchema);
+export default mongoose.model("Donation", donationSchema);

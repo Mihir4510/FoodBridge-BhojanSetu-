@@ -10,18 +10,27 @@ function initSocket(server) {
     });
 
     io.on("connection", (socket) => {
-        console.log("User connected:", socket.id);
-
-        socket.on("join", (userId) => {
-            socket.join(userId);
-            console.log("User joined room:", userId);
-        });
-
-        socket.on("disconnect", () => {
-            console.log("User disconnected:", socket.id);
-        });
-    });
-
+  // Existing: NGO joins their room
+  socket.on("joinRoom", (ngoId) => {
+    socket.join(`ngo_${ngoId}`);
+    console.log(`NGO ${ngoId} joined room`);
+  });
+ 
+  // NEW: Driver joins their own room
+  socket.on("joinDriverRoom", (driverId) => {
+    socket.join(`driver_${driverId}`);
+    console.log(`Driver ${driverId} joined room`);
+  });
+ 
+  // Existing: Donor joins their room (for accept notifications)
+  socket.on("joinDonorRoom", (donorId) => {
+    socket.join(`donor_${donorId}`);
+  });
+ 
+  socket.on("disconnect", () => {
+    console.log("Client disconnected:", socket.id);
+  });
+});
     return io;
 }
 

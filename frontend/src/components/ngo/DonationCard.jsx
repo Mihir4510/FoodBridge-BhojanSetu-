@@ -5,8 +5,11 @@ import { PriorityBadge, StatusBadge, Countdown, calcDistance, toLatLng } from ".
 const DonationCard = ({ donation, ngoLocation, onView, onAccept, onCollect, accepting, collecting }) => {
   const d = donation;
 
-  // Calculate distance
-  const donorCoords = toLatLng(d.donor?.location?.coordinates || d.location?.coordinates);
+  // ── Normalize donor field (populated or reference) ────
+  const donor = d.donor || d.donorId;
+
+  // ── Calculate distance ─────────────────────────────────
+  const donorCoords = toLatLng(donor?.location?.coordinates);
   const distance    = ngoLocation && donorCoords
     ? calcDistance(ngoLocation, donorCoords)
     : null;
@@ -67,18 +70,22 @@ const DonationCard = ({ donation, ngoLocation, onView, onAccept, onCollect, acce
             {d.expiryTime && <Countdown expiryTime={d.expiryTime} />}
           </div>
 
-          {/* Donor name */}
-          {d.donor?.name && (
+          {/* Donor name — uses donor || donorId */}
+          {donor?.name && (
             <div className="flex items-center gap-2 text-[12px] text-[#6B7280]">
               <span>👤</span>
-              <span className="font-medium text-[#374151]">{d.donor.name}</span>
+              <span className="font-medium text-[#374151]">{donor.name}</span>
             </div>
           )}
 
           {/* Date */}
           <div className="flex items-center gap-2 text-[12px] text-[#9CA3AF]">
             <span>📅</span>
-            <span>{d.createdAt ? new Date(d.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : "—"}</span>
+            <span>
+              {d.createdAt
+                ? new Date(d.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })
+                : "—"}
+            </span>
           </div>
         </div>
 
@@ -136,7 +143,7 @@ const DonationCard = ({ donation, ngoLocation, onView, onAccept, onCollect, acce
             </button>
           )}
 
-          {/* Collected / Expired badge */}
+          {/* Done states */}
           {(d.status === "collected" || d.status === "expired") && (
             <div className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-center bg-[#F3F4F6] text-[#9CA3AF]">
               {d.status === "collected" ? "✅ Collected" : "⏰ Expired"}

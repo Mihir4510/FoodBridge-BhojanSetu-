@@ -8,6 +8,7 @@ import RegisterPage from "./pages/RegisterPage";
 import AdminRoutes from './routes/AdminRoutes';
 import DonorRoutes from './routes/DonorRoutes'
 import NgoRoutes from "./routes/NgoRoutes";
+import DriverRoutes from "./routes/DriverRoutes";
 
 
 
@@ -24,6 +25,7 @@ function App() {
         <Route path="/admin/*" element={<AdminRoutes />} />
         <Route path="/donor/*" element={<DonorRoutes />} />
         <Route path="/ngo/*" element={<NgoRoutes />} />
+        <Route path="/driver/*" element={<DriverRoutes />} />
 
 
       </Routes>

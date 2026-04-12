@@ -7,6 +7,7 @@ const globalErrorHandler = require("./middleware/error.middleware");
 const authrouter=require("./routes/auth.routes")
 const donationRouter = require("./routes/donation.routes");
 const adminRoutes = require("./routes/admin.routes");
+const driverRoutes = require("./routes/driver.routes");
 
 
 
@@ -32,6 +33,8 @@ app.use("/api/auth", authrouter);
 app.use("/api/donation", donationRouter);
 
 app.use("/api/admin", adminRoutes);
+
+app.use("/api/driver", driverRoutes);
 
 
 //global errorhandler

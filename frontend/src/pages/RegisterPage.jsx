@@ -73,7 +73,9 @@ const Register = () => {
   const [success, setSuccess]   = useState(false);
   const [apiError, setApiError] = useState("");
   const [errors, setErrors]     = useState({});
-  const [coordinates, setCoordinates] = useState([null, null]);
+  const [coordinates, setCoordinates] = useState(null);
+const [locationLoading, setLocationLoading] = useState(true);
+const [locationError, setLocationError] = useState("");
 
   const [form, setForm] = useState({
     name:             "",
@@ -91,21 +93,33 @@ const Register = () => {
     // location (sent as GeoJSON — for simplicity, city string here)
   });
   useEffect(() => {
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const latitude = position.coords.latitude;
-        const longitude = position.coords.longitude;
-
-        setCoordinates([longitude, latitude]);
-      },
-      (error) => {
-        console.log("Location permission denied");
-      }
-    );
+  if (!navigator.geolocation) {
+    setLocationError("Geolocation not supported");
+    setLocationLoading(false);
+    return;
   }
-}, []);
 
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+
+      setCoordinates([longitude, latitude]); // GeoJSON format
+      setLocationLoading(false);
+    },
+    (error) => {
+      console.log(error);
+      setLocationError(
+  "Location access denied. Please enable location to continue."
+);
+      setLocationLoading(false);
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+    }
+  );
+}, []);
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
     setErrors({ ...errors, [e.target.name]: "" });
@@ -135,44 +149,56 @@ const Register = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    const errs = validate();
-    if (Object.keys(errs).length) { setErrors(errs); return; }
+  e.preventDefault();
 
-    setLoading(true);
-    try {
-      // Build payload matching your backend schema
-      const payload = {
-        name:     form.name,
-        email:    form.email,
-        password: form.password,
-        role,
-        phone:    form.phone,
-        location: {
-          type: "Point",
-         coordinates: coordinates 
-         
-        },
-        ...(role === "organization" && {
-          ngoName:        form.ngoName,
-          registrationNo: form.registrationNo,
-        }),
-        ...(role === "restaurant" && {
-          restaurantName: form.restaurantName,
-          address:        form.address,
-        }),
-      };
+  const errs = validate();
 
-      await registerUser(payload);
-      setSuccess(true);
-      setTimeout(() => navigate("/login"), 3000);
-    } catch (err) {
-      setApiError(err.response?.data?.message || "Registration failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // ✅ HARD BLOCK if location not available
+  if (!coordinates) {
+    setApiError("Please allow location access to register.");
+    return;
+  }
 
+  if (Object.keys(errs).length) {
+    setErrors(errs);
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    const payload = {
+      name: form.name,
+      email: form.email,
+      password: form.password,
+      role,
+      phone: form.phone,
+
+      location: {
+        type: "Point",
+        coordinates: coordinates, // ✅ must exist
+      },
+
+      ...(role === "organization" && {
+        ngoName: form.ngoName,
+        registrationNo: form.registrationNo,
+      }),
+      ...(role === "restaurant" && {
+        restaurantName: form.restaurantName,
+        address: form.address,
+      }),
+    };
+
+    await registerUser(payload);
+    setSuccess(true);
+    setTimeout(() => navigate("/login"), 3000);
+
+  } catch (err) {
+    setApiError(err.response?.data?.message || "Registration failed");
+  } finally {
+    setLoading(false);
+  }
+};
   // ── Success state ────────────────────────────────────────
   if (success) {
     return (
@@ -409,10 +435,29 @@ const Register = () => {
           <Link to="/privacy" className="text-[#2D6A4F] font-semibold hover:underline">Privacy Policy</Link>.
         </p>
 
+        {/* Location Status */}
+{locationLoading && (
+  <p className="text-[12px] text-[#6B7280]">
+    📍 Fetching your location...
+  </p>
+)}
+
+{locationError && (
+  <p className="text-[12px] text-red-500 font-semibold">
+    ⚠️ {locationError}
+  </p>
+)}
+
+{coordinates && (
+  <p className="text-[12px] text-green-600 font-semibold">
+    ✅ Location captured successfully
+  </p>
+)}
+
         {/* Submit */}
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || locationLoading}
           className={`
             w-full py-3.5 rounded-xl text-white font-semibold text-[15px] transition-all duration-200 mt-1
             ${loading

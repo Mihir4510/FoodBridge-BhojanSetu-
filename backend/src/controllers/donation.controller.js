@@ -135,18 +135,26 @@ async function getOrganizationRequests(req, res) {
     const donations = await Donation.find({
       organizationId: req.user._id,
       
-    }).populate("donorId", "name email role location");
+    }).populate("donorId", "name email role location")
+    .populate("organizationId", "name email"); 
 
-    const requests = donations.map((donation) => {
-      const priority = calculatePriority(donation.createdAt);
+const requests = donations.map((donation) => {
+  const priority = calculatePriority(donation.createdAt);
+  const obj = donation.toObject();
 
-      return {
-        ...donation.toObject(),
-         donor: donation.donorId,
-         organization: donation.organizationId, 
-        priority,
-      };
-    });
+  return {
+    ...obj,
+
+    donor: obj.donorId,             
+    organization: obj.organizationId, 
+
+    // keep IDs if needed (optional)
+    donorId: obj.donorId?._id,
+    organizationId: obj.organizationId?._id,
+
+    priority,
+  };
+});
 
     res.status(200).json({
       success: true,
@@ -163,68 +171,145 @@ async function getOrganizationRequests(req, res) {
 // ------------------------------------------------------------------------------------------------------------------------------
 
 // Accept Donation
-async function acceptDonation(req, res) {
-  try {
-    const donation = await Donation.findOne({
-      _id: req.params.id,
-      organizationId: req.user._id,
+// async function acceptDonation(req, res) {
+//   try {
+//     const donation = await Donation.findOne({
+//       _id: req.params.id,
+//       organizationId: req.user._id,
       
-    });
+//     });
+
+//     if (!donation) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Donation not found or already accepted",
+//       });
+//     }
+
+//     const priority = calculatePriority(donation.createdAt);
+
+//     if (priority === "expired") {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Donation expired and cannot be accepted",
+//       });
+//     }
+
+//     donation.status = "accepted";
+//     donation.acceptedAt = new Date();
+//     donation.acceptedBy = req.user._id;
+
+//     await donation.save();
+
+//     const io = getIO();
+
+//     io.to(donation.donorId.toString()).emit("donationAccepted", donation);
+//     io.to(donation.organizationId.toString()).emit("donationUpdated", donation);
+
+//     res.status(200).json({ success: true, donation });
+
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// }
+const acceptDonation = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Step 1: Mark as accepted
+    const donation = await Donation.findOneAndUpdate(
+      { _id: id, status: "pending" },
+      { organization: req.user._id, status: "accepted" },
+      { new: true }
+    )
+      .populate("donor", "name email location")
+      .populate("organization", "name location");
 
     if (!donation) {
-      return res.status(404).json({
-        success: false,
-        message: "Donation not found or already accepted",
+      return res.status(404).json({ message: "Donation not found or already accepted." });
+    }
+
+    // Step 2: Notify donor via Socket.IO that NGO accepted
+    if (req.io) {
+      req.io.to(`donor_${donation.donor._id}`).emit("donationAccepted", {
+        donationId:  donation._id,
+        title:       donation.title,
+        ngoName:     req.user.ngoName || req.user.name,
+        message:     `Your donation "${donation.title}" was accepted!`,
       });
     }
 
-    const priority = calculatePriority(donation.createdAt);
+    // Step 3: AUTO-ASSIGN DRIVER (runs in background — don't block response)
+    // io is passed so the driver can be notified via socket
+    matchDriver(donation, req.user._id, req.io)
+      .then((result) => {
+        if (result) {
+          console.log(`Auto-assigned driver: ${result.driver.name}`);
+        } else {
+          console.log("No driver available — donation stays as accepted.");
+        }
+      })
+      .catch((err) => console.error("matchDriver error:", err.message));
 
-    if (priority === "expired") {
-      return res.status(400).json({
-        success: false,
-        message: "Donation expired and cannot be accepted",
-      });
-    }
+    res.status(200).json({
+      message:  "Donation accepted. Driver assignment in progress.",
+      donation,
+    });
 
-    donation.status = "accepted";
-    donation.acceptedAt = new Date();
-    donation.acceptedBy = req.user._id;
-
-    await donation.save();
-
-    const io = getIO();
-
-    io.to(donation.donorId.toString()).emit("donationAccepted", donation);
-    io.to(donation.organizationId.toString()).emit("donationUpdated", donation);
-
-    res.status(200).json({ success: true, donation });
-
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to accept donation." });
   }
-}
+};
 // ------------------------------------------------------------------------------------------------------------------------------
 
 // Collect Donation
-async function collectDonation(req, res) {
-  try {
-    const donation = await Donation.findOne({
-      _id: req.params.id,
-      organizationId: req.user._id,
+// async function collectDonation(req, res) {
+//   try {
+//     const donation = await Donation.findOne({
+//       _id: req.params.id,
+//       organizationId: req.user._id,
       
-    });
+//     });
+
+//     if (!donation) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Donation not found or not accepted yet",
+//       });
+//     }
+
+//     donation.status = "collected";
+//     donation.collectedAt = new Date();
+
+//     await donation.save();
+//     const io = getIO();
+//     // Notify donor
+//     io.to(donation.donorId.toString()).emit("donationCollected", donation);
+
+//     // Notify NGO dashboard (IMPORTANT)
+//     io.to(donation.organizationId.toString()).emit("donationUpdated", donation);
+
+//     res.status(200).json({ success: true, donation });
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// }
+
+// ── NGO Collect Donation (status: picked_up → collected) ─
+// Keep this for backward compatibility if driver system not used
+const collectDonation = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const donation = await Donation.findOneAndUpdate(
+      { _id: id, organization: req.user._id },
+      { status: "completed", completedAt: new Date() },
+      { new: true }
+    );
 
     if (!donation) {
-      return res.status(404).json({
-        success: false,
-        message: "Donation not found or not accepted yet",
-      });
+      return res.status(404).json({ message: "Donation not found." });
     }
-
-    donation.status = "collected";
-    donation.collectedAt = new Date();
-
     await donation.save();
     const io = getIO();
     // Notify donor
@@ -233,11 +318,12 @@ async function collectDonation(req, res) {
     // Notify NGO dashboard (IMPORTANT)
     io.to(donation.organizationId.toString()).emit("donationUpdated", donation);
 
-    res.status(200).json({ success: true, donation });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(200).json({ message: "Donation marked as completed.", donation });
+  } catch (err) {
+    res.status(500).json({ message: "Failed to update donation." });
   }
-}
+};
+
 
 module.exports = {
   createDonation,
