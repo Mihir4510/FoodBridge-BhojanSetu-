@@ -210,6 +210,7 @@ const DriverDashboard = () => {
                 { icon: "🚗", val: assigned.length,  label: "Assigned"  },
                 { icon: "📦", val: pickedUp.length,  label: "Picked Up" },
                 { icon: "✅", val: driver?.totalDeliveries || 0, label: "Total Done" },
+                // { icon: "✅", val: completed.length, label: "Total Done" },
               ].map((s, i) => (
                 <div key={i} className="bg-white rounded-2xl p-4 border border-[#E5E7EB] shadow-sm text-center">
                   <span className="text-[24px] block mb-1">{s.icon}</span>
@@ -281,7 +282,7 @@ const DriverDashboard = () => {
                         </div>
                         <div className="flex items-center gap-2 text-[12px] text-[#6B7280]">
                           <span>👤</span>
-                          <span>{donation.donor?.name || "Donor"}</span>
+                          <span>{donation.donorId?.name || "Donor"}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2 text-[12px] text-[#6B7280]">

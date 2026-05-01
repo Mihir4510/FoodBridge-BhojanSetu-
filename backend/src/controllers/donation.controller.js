@@ -3,6 +3,7 @@ const Donation = require("../models/donation.model");
 const uploadFile = require("../services/storage.services");
 const User = require("../models/user.model");
 const calculatePriority = require("../utils/priorityCalculator");
+const matchDriver = require("../utils/matchDriver");
 
 
 async function createDonation(req, res) {
@@ -214,86 +215,94 @@ const requests = donations.map((donation) => {
 // }
 const acceptDonation = async (req, res) => {
   try {
-    const { id } = req.params;
+    // 🔍 DEBUG (optional)
+    console.log("USER:", req.user);
+    console.log("DONATION ID:", req.params.id);
 
-    // Step 1: Mark as accepted
-    const donation = await Donation.findOneAndUpdate(
-      { _id: id, status: "pending" },
-      { organization: req.user._id, status: "accepted" },
-      { new: true }
-    )
-      .populate("donor", "name email location")
-      .populate("organization", "name location");
+    // ── STEP 0: Find donation ──────────────────────────
+    const donation = await Donation.findById(req.params.id)
+      .populate("donorId", "name email location");
 
     if (!donation) {
-      return res.status(404).json({ message: "Donation not found or already accepted." });
+      return res.status(404).json({ message: "Donation not found." });
     }
 
-    // Step 2: Notify donor via Socket.IO that NGO accepted
-    if (req.io) {
-      req.io.to(`donor_${donation.donor._id}`).emit("donationAccepted", {
-        donationId:  donation._id,
-        title:       donation.title,
-        ngoName:     req.user.ngoName || req.user.name,
-        message:     `Your donation "${donation.title}" was accepted!`,
+    // ── STEP 1: Check status ───────────────────────────
+    if (donation.status !== "pending") {
+      return res.status(400).json({
+        message: `Donation already ${donation.status}`,
       });
     }
 
-    // Step 3: AUTO-ASSIGN DRIVER (runs in background — don't block response)
-    // io is passed so the driver can be notified via socket
-    matchDriver(donation, req.user._id, req.io)
+    // ── STEP 2: Accept donation ────────────────────────
+    donation.status = "accepted";
+    donation.organizationId = req.user._id;
+    donation.acceptedAt = new Date();
+
+    await donation.save();
+
+    // ── STEP 3: Populate updated donation ──────────────
+    const populated = await Donation.findById(donation._id)
+      .populate("donorId", "name email location")
+      .populate("organizationId", "name ngoName");
+
+    // ── STEP 4: Notify donor (SAFE) ────────────────────
+    const donorId = donation.donor?._id || donation.donorId;
+
+    if (req.io && donorId) {
+      req.io.to(`donor_${donorId}`).emit("donationAccepted", {
+        donationId: donation._id,
+        title: donation.title,
+        ngoName: req.user.ngoName || req.user.name,
+        message: `Your donation "${donation.title}" was accepted!`,
+      });
+    }
+
+    // ── STEP 5: Auto-assign driver (background) ────────
+    matchDriver(populated, req.user._id, req.io)
       .then((result) => {
         if (result) {
-          console.log(`Auto-assigned driver: ${result.driver.name}`);
+          console.log("✅ Driver assigned:", result.driver.name);
+
+          if (req.io) {
+            req.io.to(`ngo_${req.user._id}`).emit("driverAssigned", {
+              donationId: donation._id,
+              donationTitle: donation.title,
+              driverName: result.driver.name,
+              driverPhone: result.driver.phone,
+              message: `Driver ${result.driver.name} assigned.`,
+            });
+          }
         } else {
-          console.log("No driver available — donation stays as accepted.");
+          console.log("⚠️ No driver available");
+
+          if (req.io) {
+            req.io.to(`ngo_${req.user._id}`).emit("noDriverAvailable", {
+              donationId: donation._id,
+              message: "No available drivers.",
+            });
+          }
         }
       })
-      .catch((err) => console.error("matchDriver error:", err.message));
+      .catch((err) => {
+        console.error("matchDriver error:", err.message);
+      });
 
+    // ── STEP 6: Response ───────────────────────────────
     res.status(200).json({
-      message:  "Donation accepted. Driver assignment in progress.",
-      donation,
+      success: true,
+      message: "Donation accepted. Driver assignment running...",
+      donation: populated,
     });
 
   } catch (err) {
-    res.status(500).json({ message: "Failed to accept donation." });
+    console.error("FULL ERROR:", err); // IMPORTANT DEBUG
+    res.status(500).json({
+      message: "Failed to accept donation",
+      error: err.message,
+    });
   }
 };
-// ------------------------------------------------------------------------------------------------------------------------------
-
-// Collect Donation
-// async function collectDonation(req, res) {
-//   try {
-//     const donation = await Donation.findOne({
-//       _id: req.params.id,
-//       organizationId: req.user._id,
-      
-//     });
-
-//     if (!donation) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Donation not found or not accepted yet",
-//       });
-//     }
-
-//     donation.status = "collected";
-//     donation.collectedAt = new Date();
-
-//     await donation.save();
-//     const io = getIO();
-//     // Notify donor
-//     io.to(donation.donorId.toString()).emit("donationCollected", donation);
-
-//     // Notify NGO dashboard (IMPORTANT)
-//     io.to(donation.organizationId.toString()).emit("donationUpdated", donation);
-
-//     res.status(200).json({ success: true, donation });
-//   } catch (error) {
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// }
 
 // ── NGO Collect Donation (status: picked_up → collected) ─
 // Keep this for backward compatibility if driver system not used
