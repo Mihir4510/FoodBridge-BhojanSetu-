@@ -13,6 +13,7 @@ const driverAppRoutes = require("./routes/driverApplicationRoutes.js");
 
 
 const app = express();
+const isProd = process.env.NODE_ENV === "production";
 
 // Middleware
 app.use(express.json());
@@ -20,13 +21,12 @@ app.use(cookieparser());
 
 
 app.use(cors({
-  origin: "http://localhost:5173", // frontend
-  credentials: true                // allow cookies
+  origin: isProd
+    ? process.env.CLIENT_URL
+    : "http://localhost:5173",
+  credentials: true,
 }));
-// app.use((req, res, next) => {
-//   res.header("Access-Control-Allow-Credentials", "true");
-//   next();
-// });
+
 
 // Routes
 app.use("/api/auth", authrouter);
