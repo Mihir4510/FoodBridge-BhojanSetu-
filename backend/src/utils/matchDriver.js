@@ -1,11 +1,13 @@
 // backend/utils/matchDriver.js
-// THE BRAIN — Auto-assigns best driver to a donation
-// Uses: distance + priority weight + time window urgency
+// CommonJS version (module.exports)
+// THE BRAIN — finds best available driver for a donation
+//
+// HOW TO USE:
+//   const matchDriver = require("../utils/matchDriver");
+//   matchDriver(donation, ngoId, io).then(result => ...)
 
-
-import Driver   from "../models/Driver.js";
-import Donation from "../models/Donation.js";
-
+const Driver   = require("../models/driver.model");
+const Donation = require("../models/donation.model");
 
 // ── Priority weight (lower = more urgent) ─────────────────
 const PRIORITY_WEIGHT = { high: 1, medium: 2, low: 3 };
@@ -25,24 +27,24 @@ const haversine = (coord1, coord2) => {
 };
 
 // ── Time urgency score ────────────────────────────────────
-// Returns extra score if food expires within 3 hours of estimated travel time
 const timeUrgencyScore = (expiryTime, travelTimeHours) => {
-  const hoursLeft = (new Date(expiryTime) - new Date()) / 3600000;
+  const hoursLeft      = (new Date(expiryTime) - new Date()) / 3600000;
   const timeAfterTravel = hoursLeft - travelTimeHours;
-  if (timeAfterTravel < 0) return 999; // driver can't make it — penalize heavily
-  if (timeAfterTravel < 1) return 3;   // very urgent
-  if (timeAfterTravel < 3) return 1;   // urgent
-  return 0;                             // comfortable
+  if (timeAfterTravel < 0) return 999; // driver can't make it
+  if (timeAfterTravel < 1) return 3;
+  if (timeAfterTravel < 3) return 1;
+  return 0;
 };
 
 // ── Main matching function ────────────────────────────────
 const matchDriver = async (donation, ngoId, io) => {
   try {
-    // Step 1: Get donor coordinates from donation
-    const donorCoords = donation.donor?.location?.coordinates ||
-                        donation.donorId?.location?.coordinates || [0, 0];
+    const donorCoords =
+      donation.donor?.location?.coordinates ||
+      donation.donorId?.location?.coordinates ||
+      [0, 0];
 
-    // Step 2: Find all available drivers for this NGO
+    // Step 1: Find all available drivers for this NGO
     const drivers = await Driver.find({
       ngoId,
       isAvailable: true,
@@ -53,44 +55,32 @@ const matchDriver = async (donation, ngoId, io) => {
       return null;
     }
 
-    // Step 3: Filter by capacity
+    // Step 2: Filter by capacity
     const capable = drivers.filter((d) => d.capacity >= donation.quantity);
     if (!capable.length) {
       console.log("matchDriver: No drivers with sufficient capacity");
       return null;
     }
 
-    // Step 4: Score each driver
+    // Step 3: Score each driver
     const scored = capable.map((driver) => {
-      const driverCoords = driver.location.coordinates; // [lng, lat]
-
-      // Distance from driver to donor pickup point (km)
-      const dist = haversine(driverCoords, donorCoords);
-
-      // Approx travel time (assume 30 km/h avg urban speed)
-      const travelHours = dist / 30;
-
-      // Time urgency
-      const urgency = timeUrgencyScore(donation.expiryTime, travelHours);
-
-      // Priority weight
-      const pWeight = PRIORITY_WEIGHT[donation.priority] || 3;
-
-      // Combined score — LOWER is better
-      const score = dist + pWeight + urgency;
-
+      const driverCoords  = driver.location.coordinates;
+      const dist          = haversine(driverCoords, donorCoords);
+      const travelHours   = dist / 30; // assume 30 km/h
+      const urgency       = timeUrgencyScore(donation.expiryTime, travelHours);
+      const pWeight       = PRIORITY_WEIGHT[donation.priority] || 3;
+      const score         = dist + pWeight + urgency;
       return { driver, dist, score, travelHours };
     });
 
-    // Step 5: Sort by score ascending — best driver first
+    // Step 4: Sort — lowest score = best
     scored.sort((a, b) => a.score - b.score);
     const best = scored[0];
 
-    // Step 6: CONCURRENCY SAFE assignment
-    // findOneAndUpdate with driverId: null ensures only ONE driver gets assigned
-    // even if two processes try simultaneously
+    // Step 5: CONCURRENCY SAFE atomic assignment
+    // { driverId: null } guard prevents double-assignment
     const updated = await Donation.findOneAndUpdate(
-      { _id: donation._id, driverId: null }, // ← guard: only if not yet assigned
+      { _id: donation._id, driverId: null },
       {
         driverId:   best.driver._id,
         status:     "assigned",
@@ -100,29 +90,28 @@ const matchDriver = async (donation, ngoId, io) => {
     );
 
     if (!updated) {
-      // Another process already assigned a driver — safe to ignore
-      console.log("matchDriver: Donation already assigned (concurrency guard triggered)");
+      console.log("matchDriver: Already assigned (concurrency guard)");
       return null;
     }
 
-    // Step 7: Mark driver as unavailable
+    // Step 6: Mark driver as unavailable
     await Driver.findByIdAndUpdate(best.driver._id, {
       isAvailable:       false,
       currentDonationId: donation._id,
     });
 
-    // Step 8: Notify driver via Socket.IO
+    // Step 7: Notify driver via Socket.IO
     if (io) {
       io.to(`driver_${best.driver._id}`).emit("donationAssigned", {
-        donation: updated,
-        message:  `You have been assigned to pick up: ${donation.title}`,
-        distance: `${best.dist.toFixed(1)} km`,
-        estimatedTime: `${Math.ceil(best.travelHours * 60)} minutes`,
+        donation:      updated,
+        message:       `You have been assigned: ${donation.title}`,
+        distance:      `${best.dist.toFixed(1)} km`,
+        estimatedTime: `${Math.ceil(best.travelHours * 60)} min`,
       });
     }
 
-    console.log(`matchDriver: Assigned driver ${best.driver.name} (score: ${best.score.toFixed(2)})`);
-    return { driver: best.driver, donation: updated, score: best.score };
+    console.log(`matchDriver: Assigned ${best.driver.name} (score: ${best.score.toFixed(2)})`);
+    return { driver: best.driver, donation: updated };
 
   } catch (err) {
     console.error("matchDriver error:", err.message);
@@ -130,4 +119,4 @@ const matchDriver = async (donation, ngoId, io) => {
   }
 };
 
-export default matchDriver;
+module.exports = matchDriver;

@@ -1,7 +1,8 @@
 // src/components/ngo/NgoUI.jsx
-// Reusable UI primitives for NGO Dashboard
 
-import { useState, useEffect, useRef } from "react";
+// ✅ New statuses: pending, accepted, assigned, picked_up, completed, expired
+
+import { useState, useEffect } from "react";
 
 // ── Stat Card ─────────────────────────────────────────────
 export const StatCard = ({ icon, label, value, color = "green", sub }) => {
@@ -11,6 +12,7 @@ export const StatCard = ({ icon, label, value, color = "green", sub }) => {
     blue:   { bg: "bg-[#DBEAFE]", val: "text-[#2563EB]"  },
     red:    { bg: "bg-[#FEE2E2]", val: "text-[#DC2626]"  },
     purple: { bg: "bg-[#EDE9FE]", val: "text-[#7C3AED]"  },
+    teal:   { bg: "bg-[#CCFBF1]", val: "text-[#0F766E]"  },
   };
   const p = palette[color] || palette.green;
   return (
@@ -25,33 +27,37 @@ export const StatCard = ({ icon, label, value, color = "green", sub }) => {
   );
 };
 
-// ── Priority Badge ─────────────────────────────────────────
-export const PriorityBadge = ({ priority }) => {
+// ── Status Badge ───────────────────────────────────────────
+// ✅ Maps all 6 valid statuses
+// ❌ No "collected"
+export const StatusBadge = ({ status }) => {
   const map = {
-    high:   { cls: "bg-[#FEE2E2] text-[#7F1D1D]", icon: "🔴", label: "High"   },
-    medium: { cls: "bg-[#FEF3C7] text-[#92400E]", icon: "🟡", label: "Medium" },
-    low:    { cls: "bg-[#D8F3DC] text-[#1A4731]", icon: "🟢", label: "Low"    },
+    pending:   { cls: "bg-[#FEF3C7] text-[#92400E]", icon: "🟡", label: "Pending"   },
+    accepted:  { cls: "bg-[#DBEAFE] text-[#1E40AF]", icon: "✅", label: "Accepted"  },
+    assigned:  { cls: "bg-[#EDE9FE] text-[#4C1D95]", icon: "🚗", label: "Assigned"  },
+    picked_up: { cls: "bg-[#FEF3C7] text-[#92400E]", icon: "📦", label: "In Transit"},
+    completed: { cls: "bg-[#D8F3DC] text-[#1A4731]", icon: "✅", label: "Completed" },
+    expired:   { cls: "bg-[#FEE2E2] text-[#7F1D1D]", icon: "⏰", label: "Expired"   },
   };
-  const p = map[priority?.toLowerCase()] || map.low;
+  const s = map[status] || { cls: "bg-[#F3F4F6] text-[#6B7280]", icon: "⚪", label: status };
   return (
-    <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide ${p.cls}`}>
-      {p.icon} {p.label}
+    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full ${s.cls}`}>
+      {s.icon} {s.label}
     </span>
   );
 };
 
-// ── Status Badge ───────────────────────────────────────────
-export const StatusBadge = ({ status }) => {
+// ── Priority Badge ─────────────────────────────────────────
+export const PriorityBadge = ({ priority }) => {
   const map = {
-    pending:   "bg-[#FEF3C7] text-[#92400E]",
-    accepted:  "bg-[#D8F3DC] text-[#1A4731]",
-    collected: "bg-[#DBEAFE] text-[#1E40AF]",
-    rejected:  "bg-[#FEE2E2] text-[#7F1D1D]",
-    expired:   "bg-[#F3F4F6] text-[#6B7280]",
+    high:   { cls: "bg-[#FEE2E2] text-[#7F1D1D]", icon: "🔴" },
+    medium: { cls: "bg-[#FEF3C7] text-[#92400E]", icon: "🟡" },
+    low:    { cls: "bg-[#D8F3DC] text-[#1A4731]", icon: "🟢" },
   };
+  const p = map[priority?.toLowerCase()] || map.low;
   return (
-    <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize ${map[status] || map.pending}`}>
-      {status}
+    <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide ${p.cls}`}>
+      {p.icon} {priority || "low"}
     </span>
   );
 };
@@ -60,21 +66,19 @@ export const StatusBadge = ({ status }) => {
 export const Countdown = ({ expiryTime }) => {
   const [timeLeft, setTimeLeft] = useState("");
   const [urgent,   setUrgent]   = useState(false);
-
   useEffect(() => {
     const calc = () => {
       const diff = new Date(expiryTime) - new Date();
       if (diff <= 0) { setTimeLeft("Expired"); return; }
       const h = Math.floor(diff / 3600000);
       const m = Math.floor((diff % 3600000) / 60000);
-      setUrgent(diff < 3600000 * 3);
+      setUrgent(h < 3);
       setTimeLeft(h > 0 ? `${h}h ${m}m left` : `${m}m left`);
     };
     calc();
     const t = setInterval(calc, 30000);
     return () => clearInterval(t);
   }, [expiryTime]);
-
   return (
     <span className={`text-[11px] font-semibold flex items-center gap-1 ${urgent && timeLeft !== "Expired" ? "text-red-500 animate-pulse" : "text-[#9CA3AF]"}`}>
       {urgent && timeLeft !== "Expired" ? "⚠️" : "🕐"} {timeLeft}
@@ -102,22 +106,4 @@ export const EmptyState = ({ icon = "📭", title = "Nothing here", subtitle = "
   </div>
 );
 
-// ── Distance calculator (Haversine) ───────────────────────
-export const calcDistance = (coord1, coord2) => {
-  if (!coord1 || !coord2) return null;
-  const toRad = (v) => (v * Math.PI) / 180;
-  const R = 6371;
-  const dLat = toRad(coord2.lat - coord1.lat);
-  const dLon = toRad(coord2.lng - coord1.lng);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(coord1.lat)) * Math.cos(toRad(coord2.lat)) *
-    Math.sin(dLon / 2) ** 2;
-  return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1);
-};
 
-// ── Convert GeoJSON [lng,lat] → {lat,lng} ─────────────────
-export const toLatLng = (coordinates) => {
-  if (!coordinates || coordinates.length < 2) return null;
-  return { lat: coordinates[1], lng: coordinates[0] };
-};

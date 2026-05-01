@@ -6,7 +6,8 @@ import { useAuth } from "../../context/AuthContext";
 import NgoLayout from "../../components/ngo/NgoLayout";
 import MapView from "../../components/ngo/MapView";
 import DonationModal from "../../components/ngo/DonationModal";
-import { Spinner, toLatLng, PriorityBadge, StatusBadge } from "../../components/ngo/NgoUI";
+import { Spinner,  PriorityBadge, StatusBadge } from "../../components/ngo/NgoUI";
+import { toLatLng } from "../../utils/geo"; 
 
 const NgoMap = () => {
   const { user }                        = useAuth();

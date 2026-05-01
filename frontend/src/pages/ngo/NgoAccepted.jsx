@@ -1,29 +1,31 @@
 // src/pages/ngo/NgoAccepted.jsx
 
+// ✅ NGO monitors: accepted, assigned, picked_up, completed
+
 import { useEffect, useState, useCallback } from "react";
-import { getAllRequests, collectDonation } from "../../service/ngoApi";
+import { getAllRequests } from "../../service/ngoApi";
 import NgoLayout from "../../components/ngo/NgoLayout";
-import { Spinner, EmptyState, PriorityBadge, Countdown, toLatLng } from "../../components/ngo/NgoUI";
+import { Spinner, EmptyState, PriorityBadge, StatusBadge, Countdown } from "../../components/ngo/NgoUI";
 import DonationModal from "../../components/ngo/DonationModal";
 import useToast from "../../hooks/useToast";
 import ToastContainer from "../../components/donor/ToastContainer";
 
+// ✅ Active statuses = everything after pending, except expired
+const ACTIVE_STATUSES = ["accepted", "assigned", "picked_up", "completed"];
+
 const NgoAccepted = () => {
-  const [donations,  setDonations]  = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [error,      setError]      = useState("");
-  const [selected,   setSelected]   = useState(null);
-  const [collecting, setCollecting] = useState(null);
-  const { toasts, toast }           = useToast();
+  const [donations, setDonations] = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [selected,  setSelected]  = useState(null);
+  const { toasts, toast }         = useToast();
 
   const load = useCallback(async () => {
     try {
-      const res  = await getAllRequests();
+      const res = await getAllRequests();
       const all  = res.data?.donations || res.data || [];
-      // Only show accepted + collected
-      setDonations(all.filter((d) => ["accepted", "collected"].includes(d.status)));
-    } catch (e) {
-      setError(e.response?.data?.message || "Failed to load donations.");
+      setDonations(all.filter((d) => ACTIVE_STATUSES.includes(d.status)));
+    } catch {
+      toast.error("Failed to load donations.");
     } finally {
       setLoading(false);
     }
@@ -31,136 +33,104 @@ const NgoAccepted = () => {
 
   useEffect(() => { load(); }, [load]);
 
-  const handleCollect = async (id) => {
-    setCollecting(id);
-    try {
-      await collectDonation(id);
-      setDonations((prev) =>
-        prev.map((d) => d._id === id ? { ...d, status: "collected" } : d)
-      );
-      toast.success("Marked as collected! 🎉");
-      if (selected?._id === id) setSelected((prev) => ({ ...prev, status: "collected" }));
-    } catch (e) {
-      toast.error(e.response?.data?.message || "Failed to mark as collected.");
-    } finally {
-      setCollecting(null);
-    }
+  // Group by status
+  const accepted  = donations.filter((d) => d.status === "accepted");
+  const assigned  = donations.filter((d) => d.status === "assigned");
+  const pickedUp  = donations.filter((d) => d.status === "picked_up");
+  const completed = donations.filter((d) => d.status === "completed");
+
+  if (loading) return <NgoLayout title="Active Donations"><Spinner /></NgoLayout>;
+
+  const Section = ({ title, badge, items, color }) => {
+    if (!items.length) return null;
+    return (
+      <div className="mb-8">
+        <h2 className="text-[16px] font-bold text-[#111827] mb-4 flex items-center gap-2">
+          {title}
+          <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${color}`}>{items.length}</span>
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {items.map((d) => (
+            <StatusCard key={d._id} donation={d} onView={() => setSelected(d)} />
+          ))}
+        </div>
+      </div>
+    );
   };
 
-  const accepted  = donations.filter((d) => d.status === "accepted");
-  const collected = donations.filter((d) => d.status === "collected");
-
-  if (loading) return <NgoLayout title="Accepted Donations"><Spinner /></NgoLayout>;
-
   return (
-    <NgoLayout title="Accepted Donations" subtitle="Donations you have accepted and are managing.">
+    <NgoLayout title="Active Donations" subtitle="Donations you have accepted — monitored in real time.">
       <ToastContainer toasts={toasts} />
 
-      {error && (
-        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-[13px]">
-          ⚠️ {error}
-        </div>
-      )}
+      {/* Summary stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+        {[
+          { label: "Accepted",   val: accepted.length,  bg: "bg-[#DBEAFE]", text: "text-[#1E40AF]", icon: "✅" },
+          { label: "Assigned",   val: assigned.length,  bg: "bg-[#EDE9FE]", text: "text-[#4C1D95]", icon: "🚗" },
+          { label: "In Transit", val: pickedUp.length,  bg: "bg-[#FEF3C7]", text: "text-[#92400E]", icon: "📦" },
+          { label: "Completed",  val: completed.length, bg: "bg-[#D8F3DC]", text: "text-[#1A4731]", icon: "🎉" },
+        ].map((s, i) => (
+          <div key={i} className="bg-white rounded-2xl border border-[#E5E7EB] p-5 shadow-sm text-center">
+            <div className={`w-9 h-9 ${s.bg} rounded-xl flex items-center justify-center text-[18px] mx-auto mb-2`}>{s.icon}</div>
+            <p className={`font-bold text-[26px] ${s.text} leading-none`}>{s.val}</p>
+            <p className="text-[11px] text-[#9CA3AF] mt-1">{s.label}</p>
+          </div>
+        ))}
+      </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-2 gap-4 mb-8">
-        <div className="bg-white rounded-2xl border border-[#E5E7EB] p-5 shadow-sm">
-          <div className="w-10 h-10 bg-[#D8F3DC] rounded-xl flex items-center justify-center text-[20px] mb-3">✅</div>
-          <p className="font-playfair text-[32px] font-bold text-[#2D6A4F] leading-none">{accepted.length}</p>
-          <p className="text-[13px] text-[#6B7280] font-semibold mt-1">Accepted — Awaiting Pickup</p>
-        </div>
-        <div className="bg-white rounded-2xl border border-[#E5E7EB] p-5 shadow-sm">
-          <div className="w-10 h-10 bg-[#DBEAFE] rounded-xl flex items-center justify-center text-[20px] mb-3">🚚</div>
-          <p className="font-playfair text-[32px] font-bold text-[#2563EB] leading-none">{collected.length}</p>
-          <p className="text-[13px] text-[#6B7280] font-semibold mt-1">Collected — Completed</p>
+      {/* Info banner explaining new flow */}
+      <div className="bg-[#EDE9FE] border border-[#C4B5FD] rounded-2xl px-5 py-4 flex items-start gap-3 mb-8">
+        <span className="text-[18px] mt-0.5">🚗</span>
+        <div>
+          <p className="text-[13px] font-semibold text-[#4C1D95]">Driver-managed delivery system</p>
+          <p className="text-[12px] text-[#4C1D95]/80 mt-0.5 leading-relaxed">
+            After you accept a donation, a driver is auto-assigned. The driver picks up the food and delivers it to your NGO.
+            Your role is to monitor the lifecycle — no manual collection needed.
+          </p>
         </div>
       </div>
 
-      {/* Accepted section */}
-      {accepted.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-[16px] font-bold text-[#111827] mb-4 flex items-center gap-2">
-            ✅ Awaiting Pickup
-            <span className="bg-[#D8F3DC] text-[#1A4731] text-[11px] font-bold px-2.5 py-1 rounded-full">{accepted.length}</span>
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {accepted.map((d) => (
-              <AcceptedCard
-                key={d._id}
-                donation={d}
-                onView={() => setSelected(d)}
-                onCollect={handleCollect}
-                collecting={collecting}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Collected section */}
-      {collected.length > 0 && (
-        <div>
-          <h2 className="text-[16px] font-bold text-[#111827] mb-4 flex items-center gap-2">
-            🚚 Collected
-            <span className="bg-[#DBEAFE] text-[#1E40AF] text-[11px] font-bold px-2.5 py-1 rounded-full">{collected.length}</span>
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-            {collected.map((d) => (
-              <AcceptedCard
-                key={d._id}
-                donation={d}
-                onView={() => setSelected(d)}
-                onCollect={handleCollect}
-                collecting={collecting}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Empty */}
-      {donations.length === 0 && (
+      {donations.length === 0 ? (
         <div className="bg-white rounded-2xl border border-[#E5E7EB] p-8">
-          <EmptyState icon="✅" title="No accepted donations yet" subtitle="Accept incoming donations from your dashboard to see them here." />
+          <EmptyState icon="✅" title="No active donations" subtitle="Accept incoming donations from your dashboard to see them here." />
         </div>
+      ) : (
+        <>
+          <Section title="⏳ Accepted — Finding Driver" badge="" items={accepted} color="bg-[#DBEAFE] text-[#1E40AF]" />
+          <Section title="🚗 Assigned — Driver On the Way" badge="" items={assigned} color="bg-[#EDE9FE] text-[#4C1D95]" />
+          <Section title="📦 In Transit" badge="" items={pickedUp} color="bg-[#FEF3C7] text-[#92400E]" />
+          <Section title="🎉 Completed" badge="" items={completed} color="bg-[#D8F3DC] text-[#1A4731]" />
+        </>
       )}
 
-      {/* Modal */}
       {selected && (
         <DonationModal
           donation={selected}
           onClose={() => setSelected(null)}
           onAccept={() => {}}
-          onCollect={handleCollect}
           accepting={false}
-          collecting={collecting === selected._id}
         />
       )}
-
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500;600&display=swap');
-        .font-playfair { font-family: 'Playfair Display', serif; }
-        .font-dm       { font-family: 'DM Sans', sans-serif; }
-      `}</style>
     </NgoLayout>
   );
 };
 
-// ── Accepted Card ──────────────────────────────────────────
-const AcceptedCard = ({ donation: d, onView, onCollect, collecting }) => (
-  <div className="bg-white rounded-2xl border border-[#E5E7EB] p-5 shadow-sm hover:shadow-md transition-all duration-200">
-    <div className={`h-1 w-full rounded-full mb-4 ${d.status === "collected" ? "bg-[#2563EB]" : "bg-[#2D6A4F]"}`} />
+// ── Status Card — read-only, NGO monitors only ─────────────
+const StatusCard = ({ donation: d, onView }) => (
+  <div className="bg-white rounded-2xl border border-[#E5E7EB] p-5 shadow-sm hover:shadow-md transition-all">
+    <div className={`h-1 w-full rounded-full mb-4 ${
+      d.status === "completed" ? "bg-[#2D6A4F]"
+      : d.status === "picked_up" ? "bg-[#F59E0B]"
+      : d.status === "assigned"  ? "bg-[#E76F1A]"
+      : "bg-[#2563EB]"
+    }`} />
 
     <div className="flex items-start justify-between gap-3 mb-4">
       <div className="flex-1 min-w-0">
         <h3 className="font-bold text-[#111827] text-[15px] truncate mb-1.5">{d.title}</h3>
         <div className="flex gap-2 flex-wrap">
           <PriorityBadge priority={d.priority} />
-          <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize ${
-            d.status === "collected" ? "bg-[#DBEAFE] text-[#1E40AF]" : "bg-[#D8F3DC] text-[#1A4731]"
-          }`}>
-            {d.status === "collected" ? "🚚 Collected" : "✅ Accepted"}
-          </span>
+          <StatusBadge   status={d.status} />
         </div>
       </div>
       <div className="text-right flex-shrink-0">
@@ -175,31 +145,24 @@ const AcceptedCard = ({ donation: d, onView, onCollect, collecting }) => (
       </div>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-[12px] text-[#6B7280]">
-          <span>👤</span><span>{d.donor?.name || "—"}</span>
+          <span>👤</span><span>{(d.donor || d.donorId)?.name || "—"}</span>
         </div>
-        {d.expiryTime && d.status !== "collected" && <Countdown expiryTime={d.expiryTime} />}
+        {d.expiryTime && !["completed"].includes(d.status) && (
+          <Countdown expiryTime={d.expiryTime} />
+        )}
       </div>
-      {d.contactNumber && (
-        <div className="flex items-center gap-2 text-[12px] text-[#6B7280]">
-          <span>📞</span><span>{d.contactNumber}</span>
+      {d.driverId && (
+        <div className="flex items-center gap-2 text-[12px] font-semibold text-[#4C1D95] bg-[#EDE9FE] rounded-lg px-3 py-1.5">
+          <span>🚗</span><span>{d.driverId?.name || "Driver assigned"}</span>
         </div>
       )}
     </div>
 
-    <div className="flex gap-2 pt-3 border-t border-[#F3F4F6]">
+    <div className="pt-3 border-t border-[#F3F4F6]">
       <button onClick={onView}
-        className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold text-[#6B7280] border border-[#E5E7EB] hover:bg-[#F9FAFB] transition-colors">
-        👁 Details
+        className="w-full py-2.5 rounded-xl text-[12px] font-semibold text-[#6B7280] border border-[#E5E7EB] hover:bg-[#F9FAFB] transition-colors">
+        👁 View Details
       </button>
-      {d.status === "accepted" && (
-        <button
-          onClick={() => onCollect(d._id)}
-          disabled={collecting === d._id}
-          className="flex-1 py-2.5 rounded-xl text-[12px] font-semibold bg-[#2563EB] text-white hover:bg-[#1D4ED8] disabled:opacity-50 transition-colors"
-        >
-          {collecting === d._id ? "..." : "🚚 Collected"}
-        </button>
-      )}
     </div>
   </div>
 );
