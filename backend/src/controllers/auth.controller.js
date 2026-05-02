@@ -65,15 +65,16 @@ async function userregistercontroller(req, res) {
     //   sameSite: "lax",
     //   path: "/",
     // });
-    const isProd = process.env.NODE_ENV === "production";
+const isProd = process.env.NODE_ENV === "production";
+
+console.log("ENV:", process.env.NODE_ENV);
 
 res.cookie("token", token, {
   httpOnly: true,
-  secure: isProd,                      // ✅ true in production
-  sameSite: isProd ? "none" : "lax",   // ✅ correct behavior
+  secure: isProd,
+  sameSite: isProd ? "none" : "lax",
   path: "/",
 });
-
     res.status(201).json({
       user,
       token,
