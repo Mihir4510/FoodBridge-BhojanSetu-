@@ -59,12 +59,20 @@ async function userregistercontroller(req, res) {
       expiresIn: "3d",
     });
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      path: "/",
-    });
+    // res.cookie("token", token, {
+    //   httpOnly: true,
+    //   secure: false,
+    //   sameSite: "lax",
+    //   path: "/",
+    // });
+    const isProd = process.env.NODE_ENV === "production";
+
+res.cookie("token", token, {
+  httpOnly: true,
+  secure: isProd,                      // ✅ true in production
+  sameSite: isProd ? "none" : "lax",   // ✅ correct behavior
+  path: "/",
+});
 
     res.status(201).json({
       user,
@@ -106,11 +114,19 @@ async function userlogincontroller(req, res) {
     expiresIn: "3d",
   });
 
-  res.cookie("token", token, {
-    httpOnly: true,
-    secure: false,
-  sameSite: "lax",
+//   res.cookie("token", token, {
+//     httpOnly: true,
+//     secure: false,
+//   sameSite: "lax",
  
+// });
+const isProd = process.env.NODE_ENV === "production";
+
+res.cookie("token", token, {
+  httpOnly: true,
+  secure: isProd,                      // ✅ true in production
+  sameSite: isProd ? "none" : "lax",   // ✅ correct behavior
+  path: "/",
 });
   res.status(200).json({
     user: {
