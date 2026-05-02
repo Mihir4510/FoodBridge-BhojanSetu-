@@ -1,8 +1,8 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "http://localhost:3000/api/admin",
-  withCredentials: true, // include JWT cookie
+  baseURL: `${import.meta.env.VITE_API_URL}/api/admin`,
+  withCredentials: true,
 });
 
 // ── User APIs ─────────────────────────────────────────────
