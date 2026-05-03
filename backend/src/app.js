@@ -20,13 +20,14 @@ app.use(express.json());
 app.use(cookieparser());
 
 
-app.use(cors({
-  origin: isProd
-    ? process.env.CLIENT_URL
-    : "http://localhost:5173",
-  credentials: true,
-}));
 
+app.use(cors({
+  origin: [
+    "http://localhost:5173",
+    "https://bhojansetu.vercel.app"
+  ],
+  credentials: true
+}));
 
 // Routes
 app.use("/api/auth", authrouter);

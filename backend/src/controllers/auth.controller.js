@@ -170,12 +170,15 @@ const getMe = async (req, res) => {
 */
 const logoutController = (req, res) => {
   try {
-    res.cookie("token", "", {
-      httpOnly: true, // JS cannot access cookie
-      secure:false,
-      sameSite: "strict", // prevent CSRF
-      expires: new Date(0), // expire immediately
-    });
+   const isProd = process.env.NODE_ENV === "production";
+
+res.cookie("token", "", {
+  httpOnly: true,
+  secure: isProd,
+  sameSite: isProd ? "none" : "lax",
+  expires: new Date(0),
+  path: "/",
+});
 
     return res.status(200).json({
       success: true,
