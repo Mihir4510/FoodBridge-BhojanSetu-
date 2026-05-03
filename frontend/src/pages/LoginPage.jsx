@@ -57,8 +57,8 @@ const Login = () => {
       // POST /api/auth/login
       const res  = await loginUser(form);
 
-      localStorage.setItem("token", res.data.token);
-      
+      // localStorage.setItem("token", res.data.token);
+
       const user = res.data?.user || res.data;
 
       // ── 1. Store in AuthContext globally ─────────────

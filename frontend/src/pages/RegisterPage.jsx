@@ -192,7 +192,7 @@ const [locationError, setLocationError] = useState("");
    const res = await registerUser(payload);
 
 // ✅ STORE TOKEN
-localStorage.setItem("token", res.data.token);
+// localStorage.setItem("token", res.data.token);
     setSuccess(true);
     setTimeout(() => navigate("/login"), 3000);
 
