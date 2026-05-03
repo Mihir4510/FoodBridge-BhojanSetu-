@@ -49,11 +49,11 @@ async function userregistercontroller(req, res) {
       },
     });
 
-    await sendEmail({
-      to: user.email,
-      subject: "Welcome to BhojanSetu!",
-      text: `Hello ${user.name}, welcome!`,
-    });
+sendEmail({
+  to: user.email,
+  subject: "Welcome to BhojanSetu!",
+  text: `Hello ${user.name}, welcome!`,
+}).catch(err => console.error("Email error:", err));
 
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
       expiresIn: "3d",
