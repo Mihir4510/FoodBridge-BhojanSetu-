@@ -125,58 +125,128 @@ const Register = () => {
     return errs;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+//   const handleSubmit = async (e) => {
+//     e.preventDefault();
 
-    const errs = validate();
-    if (Object.keys(errs).length) { setErrors(errs); return; }
+//     const errs = validate();
+//     if (Object.keys(errs).length) { setErrors(errs); return; }
 
-    setLoading(true);
-    setApiError("");
+//     setLoading(true);
+//     setApiError("");
 
-    try {
-      const payload = {
-        name:     form.name,
-        email:    form.email,
-        password: form.password,
-        role,
-        phone:    form.phone,
+//     try {
+//       const payload = {
+//         name:     form.name,
+//         email:    form.email,
+//         password: form.password,
+//         role,
+//         phone:    form.phone,
 
-        // ✅ FIX: Send location if available, send default Point if not
-        // Backend requires coordinates — send [0,0] if GPS denied
-        // This allows registration to complete without blocking
-        location: {
-          type:        "Point",
-          coordinates: coordinates || [0, 0],
-        },
+//         // ✅ FIX: Send location if available, send default Point if not
+//         // Backend requires coordinates — send [0,0] if GPS denied
+//         // This allows registration to complete without blocking
+//         location: {
+//           type:        "Point",
+//           coordinates: coordinates || [0, 0],
+//         },
 
-        ...(role === "organization" && {
-          ngoName:        form.ngoName,
-          registrationNo: form.registrationNo,
-        }),
-        ...(role === "restaurant" && {
-          restaurantName: form.restaurantName,
-          address:        form.address,
-        }),
-      };
+//         ...(role === "organization" && {
+//           ngoName:        form.ngoName,
+//           registrationNo: form.registrationNo,
+//         }),
+//         ...(role === "restaurant" && {
+//           restaurantName: form.restaurantName,
+//           address:        form.address,
+//         }),
+//       };
 
-      const res = await registerUser(payload);
+//       const res = await registerUser(payload);
+//       // console.log("REGISTER RESPONSE:", res.data);
 
-      // ✅ FIX: Store token if backend returns it (non-NGO accounts)
-      // NGO accounts need approval first — no token given
-      if (res.data?.token) {
-        localStorage.setItem("token", res.data.token);
-      }
+//       // ✅ FIX: Store token if backend returns it (non-NGO accounts)
+//       // NGO accounts need approval first — no token given
+//       if (res.data?.token) {
+//         localStorage.setItem("token", res.data.token);
+//       }
 
-      setSuccess(true);
-      setTimeout(() => navigate("/login"), 3000);
 
-    } catch (err) {
-      setApiError(err.response?.data?.message || "Registration failed. Please try again.");
-    } finally {
-      setLoading(false);
+
+// setSuccess(true);
+
+// setTimeout(() => {
+//   navigate("/login");
+// }, 2000);
+
+//   } catch (err) {
+//   setApiError(
+//     err.code === "ECONNABORTED"
+//       ? "Server timeout. Try again."
+//       : err.response?.data?.message || "Registration failed."
+//   );
+// } finally {
+//   setLoading(false); // ✅ MUST BE HERE
+// }
+//   };
+const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  const errs = validate();
+  if (Object.keys(errs).length) { setErrors(errs); return; }
+
+  setLoading(true);
+  setApiError("");
+
+  let isUnmounted = false; // ✅ guard against unmounted setState
+
+  try {
+    const payload = {
+      name:     form.name,
+      email:    form.email,
+      password: form.password,
+      role,
+      phone:    form.phone,
+      location: {
+        type:        "Point",
+        coordinates: coordinates || [0, 0],
+      },
+      ...(role === "organization" && {
+        ngoName:        form.ngoName,
+        registrationNo: form.registrationNo,
+      }),
+      ...(role === "restaurant" && {
+        restaurantName: form.restaurantName,
+        address:        form.address,
+      }),
+    };
+
+    const res = await registerUser(payload);
+
+    if (res.data?.token) {
+      localStorage.setItem("token", res.data.token);
     }
-  };
+
+    if (!isUnmounted) {
+      setSuccess(true);
+      // ✅ Delay navigate LONGER than the finally block needs to execute
+      setTimeout(() => {
+        navigate("/login");
+      }, 2500);
+    }
+
+  } catch (err) {
+    if (!isUnmounted) {
+      setApiError(
+        err.code === "ECONNABORTED"
+          ? "Request timed out. Please try again."
+          : err.response?.data?.message || "Registration failed. Please try again."
+      );
+    }
+  } finally {
+    if (!isUnmounted) {
+      setLoading(false); // ✅ Always runs, component still mounted at this point
+    }
+  }
+};
 
   // ── Success state ──────────────────────────────────────
   if (success) {
