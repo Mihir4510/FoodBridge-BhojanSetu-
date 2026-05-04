@@ -2,6 +2,7 @@
 
 import { NavLink, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { logoutUser } from "../../service/authService"; // adjust path if needed
 
 const navItems = [
   { to: "/admin/dashboard",  icon: "🏠", label: "Dashboard"     },
@@ -14,12 +15,14 @@ const navItems = [
 const AdminSidebar = () => {
   const navigate = useNavigate();
 
-  const handleLogout = async () => {
-    try { await axios.post("/api/auth/logout", {}, { withCredentials: true }); }
-    catch (_) {}
-    navigate("/login");
-  };
+  
 
+const handleLogout = async () => {
+  try {
+    await logoutUser(); // ✅ uses correct backend URL
+  } catch (_) {}
+  navigate("/login");
+};
   return (
     <aside className="fixed left-0 top-0 h-full w-[230px] bg-[#1A2E22] flex flex-col z-50 shadow-xl">
       {/* Logo */}
