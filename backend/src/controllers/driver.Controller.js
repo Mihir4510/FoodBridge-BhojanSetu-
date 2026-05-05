@@ -6,7 +6,7 @@
 //   ✅ Bug #2: .populate("donor") → .populate("donorId") in getRoute()
 //   ✅ Improvement: completeDonation now notifies DONOR too (not just NGO)
 
-const bcrypt        = require("bcryptjs");
+const bcrypt        = require("bcrypt");
 const jwt           = require("jsonwebtoken");
 const Driver        = require("../models/driver.model");
 const Donation      = require("../models/donation.model");

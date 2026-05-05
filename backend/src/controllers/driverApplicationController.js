@@ -1,4 +1,4 @@
-const bcrypt            = require("bcryptjs");
+const bcrypt        = require("bcrypt");
 const User              = require("../models/user.model.js");
 const Driver            = require("../models/driver.model.js");
 const DriverApplication = require("../models/DriverApplication.js");
